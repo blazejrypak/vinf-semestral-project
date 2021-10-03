@@ -22,6 +22,8 @@ DEFAULT_REQUEST_HEADERS = {
 #     '87.197.160.83:8080',
 # ]
 
+LOG_LEVEL = 'INFO'
+LOGSTATS_INTERVAL = '30.0'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 USER_AGENT = 'Scraper for school project, FIIT :)'

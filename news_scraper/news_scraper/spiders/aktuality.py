@@ -78,7 +78,7 @@ class ArticleSpider(scrapy.Spider):
 class AktualitySpider(CrawlSpider):
     name = 'aktuality'
     allowed_domains = ['aktuality.sk']
-    start_urls = ['http://aktuality.sk/']
+    start_urls = ['https://www.aktuality.sk/spravy/slovensko/']
 
     def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
@@ -90,9 +90,11 @@ class AktualitySpider(CrawlSpider):
         self.driver = webdriver.Chrome(chrome_options=self.options)
 
     article_link_extractor = LinkExtractor(allow=r"https:\/\/www.aktuality.sk/clanok/[a-zA-Z0-9]*/", allow_domains='aktuality.sk', unique=True)
-    section_link_extractor = LinkExtractor(allow=r"spravy/", allow_domains='aktuality.sk', unique=True)
+    pagination_link_extractor = LinkExtractor(allow=r"https://www.aktuality.sk/spravy/.*/\d/", allow_domains='aktuality.sk', unique=True)
+    section_link_extractor = LinkExtractor(allow=r"https://www.aktuality.sk/spravy/.*/", allow_domains='aktuality.sk', unique=True)
     rules = [
         Rule(article_link_extractor, callback='parse_article', process_request='process_request_cookies'),
+        Rule(pagination_link_extractor, process_request='process_request_cookies'),
         Rule(section_link_extractor, process_request='process_request_cookies')
     ]
 
@@ -104,8 +106,8 @@ class AktualitySpider(CrawlSpider):
     def start_requests(self):
         self.driver.get(self.login_page)
         time.sleep(5)
-        self.driver.find_element(By.ID, ('account-email')).send_keys('rypak.b@gmail.com')
-        self.driver.find_element(By.ID, ('password')).send_keys('Anonymousfubu4271.')
+        self.driver.find_element(By.ID, ('account-email')).send_keys(EMAIL)
+        self.driver.find_element(By.ID, ('password')).send_keys(PASSWORD)
         self.driver.find_element(By.CSS_SELECTOR, ('.submit-btn')).click()
         time.sleep(5)
         self.cookies = {cookie['name']: cookie['value'] for cookie in self.driver.get_cookies()}
@@ -119,9 +121,19 @@ class AktualitySpider(CrawlSpider):
         return request
 
     def parse_article(self, response):
+        title = response.xpath('//*[@id="article"]/h1/span/text()').get()
+        datetime_str = str(response.css('.date::text').get()).strip('\n ')
+        date_str = re.search(r'\d{2}.\d{2}.\d{4}', datetime_str)
+        time_str = re.search(r'\d{2}:\d{2}', datetime_str)
         article_body = response.css('.fulltext')
         content = ''
         for p in article_body.css('p::text').getall():
             content += re.sub('\s+',' ',str(p))
-        article = ArticleItem(url=response.url, body = re.sub('Aktivujte[\s\S]*nami.', '', content))
+        output_datetime = ''
+        if date_str:
+            output_datetime += date_str.group()
+            if time_str:
+                output_datetime += ':'
+                output_datetime += time_str.group()
+        article = ArticleItem(url=response.url, title=title, body = content, datetime = output_datetime)
         return article

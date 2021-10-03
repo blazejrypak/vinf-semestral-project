@@ -13,9 +13,9 @@ class NewsScraperExporterPipeline(object):
     """Bulk items exporter"""
 
     def open_spider(self, spider):
-        self.current_exporter = JsonLinesItemExporter(file=self.get_file(), encoding='utf-8', indent=2)
+        self.current_exporter = JsonLinesItemExporter(file=self.get_file(), encoding='utf-8', indent=0)
         self.current_exporter_scraped_items = 0
-        self.limit_bulk_items = 100
+        self.limit_bulk_items = 1200 # cca 1 hour of scraping
         self.current_exporter.start_exporting()
 
     def get_file(self):
@@ -27,7 +27,7 @@ class NewsScraperExporterPipeline(object):
 
     def _exporter_for_item(self):
         if self.current_exporter_scraped_items >= self.limit_bulk_items:
-            self.current_exporter = JsonLinesItemExporter(file=self.get_file(), encoding='utf-8', indent=2)
+            self.current_exporter = JsonLinesItemExporter(file=self.get_file(), encoding='utf-8', indent=0)
             self.current_exporter_scraped_items = 0
         return self.current_exporter
 

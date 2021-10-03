@@ -13,4 +13,6 @@ class NewsScraperItem(scrapy.Item):
 
 class ArticleItem(scrapy.Item):
     url = scrapy.Field()
+    title = scrapy.Field()
     body = scrapy.Field()
+    datetime = scrapy.Field()
