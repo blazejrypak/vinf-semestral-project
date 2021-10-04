@@ -14,11 +14,13 @@ class NewsScraperExporterPipeline(object):
 
     def open_spider(self, spider):
         self.current_exporter = JsonLinesItemExporter(file=self.get_file(), encoding='utf-8', indent=0)
+        self.current_exporter.start_exporting()
         self.current_exporter_scraped_items = 0
         self.limit_bulk_items = 1200 # cca 1 hour of scraping
-        self.current_exporter.start_exporting()
 
-    def get_file(self):
+    def get_file(self, file_name=None):
+        if file_name:
+            return open('/Users/blazejrypak/Projects/vinf-project/data/' + file_name + '.json', 'wb')
         now = datetime.datetime.now()
         return open('/Users/blazejrypak/Projects/vinf-project/data/'+now.strftime("%d-%m-%Y-%H-%M-%S") + '-article.json', 'wb')
 

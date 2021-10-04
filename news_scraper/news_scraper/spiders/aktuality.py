@@ -1,3 +1,4 @@
+import json
 from typing_extensions import ParamSpec
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -5,10 +6,8 @@ from scrapy.spiders.crawl import Rule
 from scrapy.linkextractors import LinkExtractor
 import re
 from news_scraper.items import ArticleItem
-from scrapy.http import Request, FormRequest, request
+from scrapy.http import Request
 from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 import time
 from news_scraper.conf import EMAIL, PASSWORD
@@ -27,10 +26,12 @@ headers = {
     'Sec-Fetch-Mode': 'navigate',
 }
 
+
 class ArticleSpider(scrapy.Spider):
     name = 'article'
     allowed_domains = ['aktuality.sk']
-    start_urls = ['https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/']
+    start_urls = [
+        'https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/']
 
     def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
@@ -48,7 +49,8 @@ class ArticleSpider(scrapy.Spider):
         self.driver.find_element(By.ID, ('password')).send_keys(PASSWORD)
         self.driver.find_element(By.CSS_SELECTOR, ('.submit-btn')).click()
         time.sleep(5)
-        self.cookies = {cookie['name']: cookie['value'] for cookie in self.driver.get_cookies()}
+        self.cookies = {cookie['name']: cookie['value']
+                        for cookie in self.driver.get_cookies()}
         time.sleep(5)
         yield Request(url='https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/', cookies=self.cookies, headers=headers)
         self.driver.quit()
@@ -60,26 +62,29 @@ class ArticleSpider(scrapy.Spider):
         request.headers = headers
         return request
 
-    def parse(self, response):
-        datetime_str = str(response.css('.date::text').get()).strip('\n ')
-        date_str = re.search(r'\d{2}.\d{2}.\d{4}', datetime_str)
-        time_str = re.search(r'\d{2}:\d{2}', datetime_str)
+    def parse_article(self, response):
+        title = response.xpath('//*[@id="article"]/h1/span/text()').get()
+        # datetime_str = str(response.css('.date::text').get()).strip('\n ')
+        # date_str = re.search(r'\d{2}.\d{2}.\d{4}', datetime_str)
+        # time_str = re.search(r'\d{2}:\d{2}', datetime_str)
         article_body = response.css('.fulltext')
         content = ''
         for p in article_body.css('p::text').getall():
-            content += re.sub('\s+',' ',str(p))
-        yield {
-            'body': re.sub('Aktivujte[\s\S]*nami.', '', content),
-            'url': response.url,
-            'datetime': str(f'{date_str.group()}:{time_str.group()}')
-        }
-    
+            content += re.sub('\s+', ' ', str(p))
+        # output_datetime = ''
+        # if date_str:
+        #     output_datetime += date_str.group()
+        #     if time_str:
+        #         output_datetime += ':'
+        #         output_datetime += time_str.group()
+        article = ArticleItem(url=response.url, title=title, body=content)
+        return article
 
 
 class AktualitySpider(CrawlSpider):
     name = 'aktuality'
     allowed_domains = ['aktuality.sk']
-    start_urls = ['https://www.aktuality.sk/spravy/slovensko/']
+    start_urls = ['https://www.aktuality.sk']
 
     def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
@@ -89,20 +94,30 @@ class AktualitySpider(CrawlSpider):
         for key in headers.keys():
             self.options.add_argument(f'{key}={headers[key]}')
         self.driver = webdriver.Chrome(chrome_options=self.options)
+        self.debug_site_graph_depth = 0
+        self.debug = False
 
-    article_link_extractor = LinkExtractor(allow=r"https:\/\/www.aktuality.sk/clanok/[a-zA-Z0-9]*/", allow_domains='aktuality.sk', unique=True)
-    pagination_link_extractor = LinkExtractor(allow=r"https://www.aktuality.sk/spravy/.*/\d/", allow_domains='aktuality.sk', unique=True)
-    section_link_extractor = LinkExtractor(allow=r"https://www.aktuality.sk/spravy/.*/", allow_domains='aktuality.sk', unique=True)
+    article_link_extractor = LinkExtractor(
+        allow=r"www.aktuality.sk/clanok/[a-zA-Z0-9]*/", allow_domains='aktuality.sk', unique=True)
+    pagination_link_extractor = LinkExtractor(
+        allow=r"www.aktuality.sk/spravy/.*/\d/", allow_domains='aktuality.sk', unique=True)
+    section_link_extractor = LinkExtractor(
+        allow=r"www.aktuality.sk/spravy/.*/", allow_domains='aktuality.sk', unique=True)
     rules = [
-        Rule(article_link_extractor, callback='parse_article', process_request='process_request_cookies'),
+        Rule(section_link_extractor, process_request='process_request_cookies'),
         Rule(pagination_link_extractor, process_request='process_request_cookies'),
-        Rule(section_link_extractor, process_request='process_request_cookies')
+        Rule(article_link_extractor, callback='parse_article',
+             process_request='process_request_cookies'),
     ]
+
+    def process_exception(self, request, exception, spider):
+        request.dont_filter = True
+        return request
 
     def process_request_cookies(self, request, spider):
         if self.cookies:
             request.cookies = self.cookies
-        request.headers = headers
+        # request.headers = headers # not working why?
         return request
 
     def start_requests(self):
@@ -112,30 +127,35 @@ class AktualitySpider(CrawlSpider):
         self.driver.find_element(By.ID, ('password')).send_keys(PASSWORD)
         self.driver.find_element(By.CSS_SELECTOR, ('.submit-btn')).click()
         time.sleep(5)
-        self.cookies = {cookie['name']: cookie['value'] for cookie in self.driver.get_cookies()}
+        self.cookies = {cookie['name']: cookie['value']
+                        for cookie in self.driver.get_cookies()}
         self.driver.quit()
         time.sleep(5)
-        yield Request(url='https://www.aktuality.sk/spravy/slovensko/', cookies=self.cookies, headers=headers)
+        yield Request(url=self.start_urls[0], cookies=self.cookies)
 
-    def make_requests_from_url(self, url):
-        request = super().make_requests_from_url(url)
-        request.cookies = self.cookies
-        return request
+    def _parse(self, response, **kwargs):
+        if self.debug and self.debug_site_graph_depth < 5:
+            links = []
+            for rule_index, rule in enumerate(self._rules):
+                links.extend(rule.link_extractor.extract_links(response))
+
+            linkedUrls = []
+            for l in links:
+                linkedUrls.append(l.url)
+            with open('./site.json', 'a') as file:
+                root_node = {
+                    'url': response.url,
+                    'urlLinks': linkedUrls
+                }
+                file.write(json.dumps(root_node) + '\n')
+            self.debug_site_graph_depth += 1
+        return super()._parse(response, **kwargs)
 
     def parse_article(self, response):
         title = response.xpath('//*[@id="article"]/h1/span/text()').get()
-        # datetime_str = str(response.css('.date::text').get()).strip('\n ')
-        # date_str = re.search(r'\d{2}.\d{2}.\d{4}', datetime_str)
-        # time_str = re.search(r'\d{2}:\d{2}', datetime_str)
         article_body = response.css('.fulltext')
         content = ''
         for p in article_body.css('p::text').getall():
-            content += re.sub('\s+',' ',str(p))
-        # output_datetime = ''
-        # if date_str:
-        #     output_datetime += date_str.group()
-        #     if time_str:
-        #         output_datetime += ':'
-        #         output_datetime += time_str.group()
-        article = ArticleItem(url=response.url, title=title, body = content)
+            content += re.sub('\s+', ' ', str(p))
+        article = ArticleItem(url=response.url, title=title, body=content)
         return article

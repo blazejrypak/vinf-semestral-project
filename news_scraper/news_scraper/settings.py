@@ -22,11 +22,17 @@ DEFAULT_REQUEST_HEADERS = {
 #     '87.197.160.83:8080',
 # ]
 
-LOG_LEVEL = 'INFO'
-LOGSTATS_INTERVAL = '30.0'
+# LOG_LEVEL = 'INFO'
+LOGSTATS_INTERVAL = '5.0'
+# DUPEFILTER_DEBUG = True
+
+# SWITCH FROM DFO TO BFO CRAWL
+DEPTH_PRIORITY = 1
+SCHEDULER_DISK_QUEUE = 'scrapy.squeues.PickleFifoDiskQueue'
+SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.FifoMemoryQueue'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = 'Scraper for school project, FIIT :)'
+USER_AGENT = 'Scraper for school project, FIIT STU :)'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
@@ -37,7 +43,7 @@ ROBOTSTXT_OBEY = False
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 2.5
+DOWNLOAD_DELAY = 1.5
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
@@ -49,10 +55,17 @@ DOWNLOAD_DELAY = 2.5
 #TELNETCONSOLE_ENABLED = False
 
 # Override the default request headers:
-#DEFAULT_REQUEST_HEADERS = {
-#   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-#   'Accept-Language': 'en',
-#}
+DEFAULT_REQUEST_HEADERS = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36',
+    'Sec-Fetch-User': '?1',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept-Language': 'sk-sk',
+    'Cache-Control': 'max-age=31536000',
+    'DNT': '1',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-Mode': 'navigate',
+}
 
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
