@@ -22,8 +22,8 @@ DEFAULT_REQUEST_HEADERS = {
 #     '87.197.160.83:8080',
 # ]
 
-# LOG_LEVEL = 'INFO'
-LOGSTATS_INTERVAL = '5.0'
+LOG_LEVEL = 'INFO'
+LOGSTATS_INTERVAL = '60.0'
 # DUPEFILTER_DEBUG = True
 
 # SWITCH FROM DFO TO BFO CRAWL
@@ -43,10 +43,13 @@ ROBOTSTXT_OBEY = False
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 1.5
+DOWNLOAD_DELAY = 0.5
 # The download delay setting will honor only one of:
-#CONCURRENT_REQUESTS_PER_DOMAIN = 16
+CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
+
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_TARGET_CONCURRENCY = 0.5
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False

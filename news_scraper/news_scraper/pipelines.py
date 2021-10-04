@@ -16,7 +16,7 @@ class NewsScraperExporterPipeline(object):
         self.current_exporter = JsonLinesItemExporter(file=self.get_file(), encoding='utf-8', indent=0)
         self.current_exporter.start_exporting()
         self.current_exporter_scraped_items = 0
-        self.limit_bulk_items = 1200 # cca 1 hour of scraping
+        self.limit_bulk_items = 2000
 
     def get_file(self, file_name=None):
         if file_name:

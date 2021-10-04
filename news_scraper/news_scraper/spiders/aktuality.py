@@ -12,7 +12,7 @@ from selenium.webdriver.common.by import By
 import time
 from news_scraper.conf import EMAIL, PASSWORD
 
-headers = {
+chromeOptions = {
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
     'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36',
@@ -38,8 +38,9 @@ class ArticleSpider(scrapy.Spider):
         self.options = webdriver.ChromeOptions()
         self.login_page = 'https://konto.aktuality.sk/prihlasenie'
         self.cookies = None
-        for key in headers.keys():
-            self.options.add_argument(f'{key}={headers[key]}')
+        for key in chromeOptions.keys():
+            self.options.add_argument(f'{key}={chromeOptions[key]}')
+        self.options.headless = True
         self.driver = webdriver.Chrome(chrome_options=self.options)
 
     def start_requests(self):
@@ -52,14 +53,14 @@ class ArticleSpider(scrapy.Spider):
         self.cookies = {cookie['name']: cookie['value']
                         for cookie in self.driver.get_cookies()}
         time.sleep(5)
-        yield Request(url='https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/', cookies=self.cookies, headers=headers)
+        yield Request(url='https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/', cookies=self.cookies, headers=chromeOptions)
         self.driver.quit()
 
     def make_requests_from_url(self, url):
         request = super(ArticleSpider, self).make_requests_from_url(url)
         if self.cookies:
             request.cookies = self.cookies
-        request.headers = headers
+        request.headers = chromeOptions
         return request
 
     def parse_article(self, response):
@@ -91,8 +92,9 @@ class AktualitySpider(CrawlSpider):
         self.options = webdriver.ChromeOptions()
         self.login_page = 'https://konto.aktuality.sk/prihlasenie'
         self.cookies = None
-        for key in headers.keys():
-            self.options.add_argument(f'{key}={headers[key]}')
+        for key in chromeOptions.keys():
+            self.options.add_argument(f'{key}={chromeOptions[key]}')
+        self.options.headless = True
         self.driver = webdriver.Chrome(chrome_options=self.options)
         self.debug_site_graph_depth = 0
         self.debug = False
