@@ -23,7 +23,7 @@ DEFAULT_REQUEST_HEADERS = {
 # ]
 
 LOG_LEVEL = 'INFO'
-LOGSTATS_INTERVAL = '60.0'
+LOGSTATS_INTERVAL = '5.0'
 # DUPEFILTER_DEBUG = True
 
 # SWITCH FROM DFO TO BFO CRAWL
@@ -38,7 +38,7 @@ USER_AGENT = 'Scraper for school project, FIIT STU :)'
 ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-#CONCURRENT_REQUESTS = 32
+# CONCURRENT_REQUESTS = 32
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
@@ -49,7 +49,7 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
 
 AUTOTHROTTLE_ENABLED = True
-AUTOTHROTTLE_TARGET_CONCURRENCY = 0.5
+AUTOTHROTTLE_TARGET_CONCURRENCY = 0.75
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
