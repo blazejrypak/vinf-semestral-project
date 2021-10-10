@@ -158,6 +158,6 @@ class AktualitySpider(CrawlSpider):
         article_body = response.css('.fulltext')
         content = ''
         for p in article_body.css('p::text').getall():
-            content += re.sub('\s+', ' ', str(p))
+            content += re.sub('\s+', ' ', str(p)) + ' '
         article = ArticleItem(url=response.url, title=title, body=content)
         return article
