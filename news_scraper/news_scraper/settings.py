@@ -16,6 +16,8 @@ DEFAULT_REQUEST_HEADERS = {
     'Referer': 'https://www.aktuality.sk' 
 }
 
+JOBDIR = 'AKTUALITY_SPIDER_JOB/job-1'
+
 # ROTATING_PROXY_LIST = [
 #     '212.5.206.97:8080',
 #     '91.222.104.82:8080',
@@ -23,7 +25,7 @@ DEFAULT_REQUEST_HEADERS = {
 # ]
 
 LOG_LEVEL = 'INFO'
-LOGSTATS_INTERVAL = '5.0'
+LOGSTATS_INTERVAL = '60.0'
 # DUPEFILTER_DEBUG = True
 
 # SWITCH FROM DFO TO BFO CRAWL
@@ -32,7 +34,7 @@ SCHEDULER_DISK_QUEUE = 'scrapy.squeues.PickleFifoDiskQueue'
 SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.FifoMemoryQueue'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = 'Scraper for school project, FIIT STU :)'
+USER_AGENT = 'Scraper for school reasearch project, FIIT STU (rypak.b@gmail.com)'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
@@ -49,7 +51,7 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
 
 AUTOTHROTTLE_ENABLED = True
-AUTOTHROTTLE_TARGET_CONCURRENCY = 0.75
+AUTOTHROTTLE_TARGET_CONCURRENCY = 0.5
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
