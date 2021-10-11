@@ -85,8 +85,7 @@ class Indexer:
         return self.str2ascii(text)    
 
 
-    def tokenize_persons(self, text, tokens):
-        Lu = "{Lu}"
+    def tokenize_persons(self, text, token_freq_per_doc):
         for name_ in self.slovak_person_first_names:
             name = self.str2ascii(name_)
             # we can find only names without suffix, (we cant find Andrejom Dankom)
@@ -95,18 +94,16 @@ class Indexer:
             for n in names_with_first_name:
                 reg_last_name_pattern = f"( )\\b(?:{n.split(' ')[-1][:-1]}[a-z]+)"
                 text = text.replace(n, "")
+                found = regex.findall(reg_last_name_pattern, text)
                 text = re.sub(reg_last_name_pattern, "", text)
-                tokens.add(n)
-            # for n in names_with_first_name:
-            #     reg_last_name_pattern = f"( )\\b(?:{n.split(' ')[-1][:-1]}[a-z]+)"
-            #     text = text.replace(n, self.get_entity_placeholder(entity='person', placeholder=f"{n.replace(' ', '-')}"))
-            #     text = re.sub(self.add_name2pattern(reg_last_name_pattern, 'person'), self.get_entity_placeholder(entity='person', placeholder=f"{n.replace(' ', '-')}"), text)
-            #     found_names.add(n)
-        return text, tokens
+                if n not in token_freq_per_doc:
+                    token_freq_per_doc[n] = 1 + len(found)
+                else:
+                    token_freq_per_doc[n] += len(found)
+        return text, token_freq_per_doc
 
 
-    def tokenize_sub_persons(self, text):
-        found_names = set()
+    def tokenize_sub_persons(self, text, token_freq_per_doc):
         # to replace person like Andrejom Dankom we need to find all words starting with capital letter
         reg_pat = "([A-Z][a-z]+)(?: )"
         all_possible_last_names = set(regex.findall(reg_pat, text))
@@ -114,53 +111,73 @@ class Indexer:
             for name in self.slovak_person_first_names:
                 possible = regex.findall(f"({name}\\S+ {pln}\\S+)", text)
                 if possible:
-                    text = re.sub(self.add_name2pattern(f"({name}\\S+ {pln}\\S+)", 'person'), self.get_entity_placeholder(entity='person', placeholder=f"{name}-{pln}"), text)
-                    text = re.sub(self.add_name2pattern(f"\b{pln[:-1]}(?: |\.)", 'person'), self.get_entity_placeholder(entity='person', placeholder=f"{name}-{pln}"), text)
-        return text
+                    text = re.sub(self.add_name2pattern(f"({name}\\S+ {pln}\\S+)", 'person'), "", text)
+                    found = regex.findall(f"\b{pln[:-1]}(?: |\.)", text)
+                    text = re.sub(self.add_name2pattern(f"\b{pln[:-1]}(?: |\.)", 'person'), "", text)
+                    entity = f"{name} {pln}"
+                    if entity not in token_freq_per_doc:
+                        token_freq_per_doc[entity] = 1 + len(possible) + len(found)
+                    else:
+                        token_freq_per_doc[entity] += len(possible) + len(found)
+        return text, token_freq_per_doc
 
     def get_entities_from_article(self, text):
         return set(regex.findall("\[\[([^\]]+)\]\]", text))
 
-    def tokenize_companies(self, text):
+    def tokenize_companies(self, text, token_freq_per_doc):
         companies_suffixes = "(?:s.r.o|a.s.|j. a. s.|akc. spol.|spol. s. r. o.|s. r. o.|ver. obch. spol.|v. o. s.|kom. spol.|k. s.|š. p.|Inc|Ltd|Jr|Sr|Co)"
         pattern = f"((?:[A-Z][a-z]+)(?: [A-Z][a-z]+)* {companies_suffixes})"
-        return re.sub(self.add_name2pattern(pattern, 'company'), self.get_entity_placeholder('company', 'company'), text)
+        found_companies = regex.findall(pattern, text)
+        for f in found_companies:
+            token_freq_per_doc[f] = text.count(f)
+        return re.sub(self.add_name2pattern(pattern, 'company'), "", text), token_freq_per_doc
 
 
-    def tokenize_acronyms(self, text):
+    def tokenize_acronyms(self, text, token_freq_per_doc):
         end_sentence = "\.|\!|\?"
         pattern = "(?P<acronym>[A-Z]{2,})" + f"(?: |{end_sentence})"
-        text = re.sub(pattern, f"[[=ACRONYM=\g<acronym>]]", text)
-        return text
+        found = regex.findall(pattern, text)
+        for f in found:
+            token_freq_per_doc[f] = text.count(f)
+        return re.sub(pattern, "", text), token_freq_per_doc
 
 
-    def tokenize_websites(self, text):
+    def tokenize_websites(self, text, token_freq_per_doc):
         websites = "[.](?:sk|com|net|org|io|gov|eu|de|cz)"
         pattern = "([A-Za-z]+(?:" + websites + ")+)"
-        return re.sub(self.add_name2pattern(pattern, 'website'), self.get_entity_placeholder('website', 'website'), text)
+        found = regex.findall(pattern, text)
+        for f in found:
+            token_freq_per_doc[f] = text.count(f)
+        return re.sub(self.add_name2pattern(pattern, 'website'), "", text), token_freq_per_doc
 
 
     def clean_date_formats(self, text):
         p1 = "((?:\d\d\.) (?:\d\d\.) (?:\d\d\d\d))"
         p2 = "([0-9]{1,2}\. (jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec).*([0-9]{4}))"
-        p2 = "([0-9]{1,2}\. (jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)[a-z]+)"
+        p3 = "([0-9]{1,2}\. (jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)[a-z]+)"
+        p4 = " \d\d\d\d "
         text = re.sub(p1, "", text)
         text = re.sub(p2, "", text)
+        text = re.sub(p3, "", text)
+        text = re.sub(p4, "", text)
         return text
 
     def clean_all(self, text):
         p1 = "[0-9]+\. [a-z]+"
         p2 = "(Bc.|Mgr|Mgr. art|Ing|Ing. arch|MUDr|MDDr|MVDr|PhD|ArtD|ThLic|ThDr|RNDr|PharmDr|PhDr|JUDr|PaedDr|ThDr|Dr.h.c|DrSc|doc|prof)[.]"
+        p3 = "\(.*\)"
         text = re.sub(p1, "", text)
         text = re.sub(p2, "", text)
+        text = re.sub(p3, "", text)
         return text
 
     def remove_stop_words(self, text):
         for sw in self.stop_words:
-            text = re.sub(f"(?i)\\b{sw} ", "", text)
+            text = re.sub(f"(?i)\\b{sw}\\b", "", text)
         return text
 
     def split2sentences(self, text):
+        text = text.replace('.', ' ')
         text = re.sub('(\.(?: )?)([A-Z])', "<endline>\g<2>", text)
         return text.split('<endline>')
 
@@ -180,30 +197,31 @@ class Indexer:
 
     def tokenize_doc(self, doc, tf):
         tokens = set()
+        token_freq_per_doc = defaultdict(int)
+        token_freq = dict(Counter(tokens))
         article_content = doc['body']
         text = self.prepare_text(article_content)
-        text, tokens = self.tokenize_persons(text, tokens)
-        print(text)
-        # text = self.tokenize_sub_persons(text)
-        # text = self.tokenize_companies(text)
-        # text = self.tokenize_acronyms(text)
-        # text = self.tokenize_websites(text)
-        # text = self.clean_date_formats(text)
-        # text = self.clean_all(text)
-        # text = self.remove_stop_words(text)
-        # sentences = self.split2sentences(text)
-        # pprint.pprint(sentences)
-        # tokens = set()
-        # for s in sentences:
-        #     s_tokens = (self.get_entities_from_article(s))
-        #     tokens.update(s_tokens)
-        #     for st in s_tokens:
-        #         s = s.replace(st, ' ')
-        #     for w in s.replace(',', '').split(' '):
-        #         tokens.add(w)
-        # pprint.pprint(tokens)
+        print(text, '\n\n\n')
+        text, token_freq_per_doc = self.tokenize_persons(text, token_freq_per_doc)
+        text, token_freq_per_doc = self.tokenize_sub_persons(text, token_freq_per_doc)
+        text, token_freq_per_doc = self.tokenize_companies(text, token_freq_per_doc)
+        text, token_freq_per_doc = self.tokenize_acronyms(text, token_freq_per_doc)
+        text, token_freq_per_doc = self.tokenize_websites(text, token_freq_per_doc)
+        text = self.clean_date_formats(text)
+        text = self.clean_all(text)
+        sentences = self.split2sentences(text)
+        for s in sentences:
+            for w in s.split(' '):
+                if w not in self.stop_words:
+                    if w not in token_freq_per_doc:
+                        token_freq_per_doc[w] = 1 + text.count(w)
+                    else:
+                        token_freq_per_doc[w] += text.count(w)
 
-        token_freq = dict(Counter(tokens))
+
+
+        pprint.pprint(token_freq_per_doc)
+
         tf = self.add2tf(token_freq, tf)
         return tokens, tf
 
@@ -238,3 +256,5 @@ class Indexer:
 
 indexer = Indexer()
 indexer.run()
+
+# Dubaj 2020, COVID-19, (SaS), Hlas-SD
