@@ -10,3 +10,5 @@ conf.py
 
 AKTUALITY_SPIDER_JOB
 notebooks
+
+morf_dict.txt.gz

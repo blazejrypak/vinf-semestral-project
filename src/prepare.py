@@ -7,6 +7,29 @@ import regex
 import os
 import time
 import pprint
+import gzip
+
+class SlovakStemmer:
+    def __init__(self, morf_dict_fpath):
+        self.morf_dict_path = morf_dict_fpath
+
+    def str2ascii(self, string):
+        string = unicodedata.normalize('NFD', string)
+        string = string.encode('ascii', 'ignore')
+        string = string.decode("utf-8")
+        return string
+
+    def stem_text(self, text):
+        with gzip.open(self.morf_dict_path, 'rt') as morf_dict:
+            for line in morf_dict:
+                line = self.str2ascii(line).replace('*', '')
+                words = line.split('\t')
+                try:
+                    text = re.sub(f"\\b{words[1]}\\b", words[0], text)
+                except re.error:
+                    print(words)
+                    break
+        return text
 
 class ArticlesReader():
     def __init__(self, file_path):
@@ -31,6 +54,7 @@ class Indexer:
         self.slovak_person_first_names = self.get_slovak_person_first_names('./names.txt')
         self.stop_words = self.get_stop_words('./stop_words.txt')
         self.articles_reader = None
+        # self.stemmer = SlovakStemmer('./morf_dict.txt.gz')
 
     def get_slovak_person_first_names(self, file_path):
         f = open(file_path, 'r', encoding='UTF-8')
@@ -40,7 +64,7 @@ class Indexer:
 
     def get_stop_words(self, file_path):
         f = open(file_path, 'r', encoding='UTF-8')
-        words = [line.rstrip() for line in f]
+        words = [self.str2ascii(line).rstrip() for line in f]
         f.close()
         return words    
 
@@ -81,7 +105,9 @@ class Indexer:
         return text.replace('\n', ' ').replace('  ', ' ')
 
     def prepare_text(self, text):
-        text = self.clean_text(text)
+        text_a = self.clean_text(text)
+        # text = self.stemmer.stem_text(text_a)
+        # print(sum ( text_a[i] != text[i] for i in range(len(text_a)) ))
         return self.str2ascii(text)    
 
 
@@ -209,6 +235,7 @@ class Indexer:
         text, token_freq_per_doc = self.tokenize_websites(text, token_freq_per_doc)
         text = self.clean_date_formats(text)
         text = self.clean_all(text)
+        print(text, '\n\n\n')
         sentences = self.split2sentences(text)
         for s in sentences:
             for w in s.split(' '):
@@ -217,6 +244,9 @@ class Indexer:
                         token_freq_per_doc[w] = 1 + text.count(w)
                     else:
                         token_freq_per_doc[w] += text.count(w)
+        
+        for sw in self.stop_words:
+            token_freq_per_doc.pop(sw, None)
 
 
 
