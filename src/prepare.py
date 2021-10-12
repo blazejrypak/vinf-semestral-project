@@ -221,10 +221,8 @@ class Indexer:
                 tf[term].append(0)
         return tf
 
-    def tokenize_doc(self, doc, tf):
-        tokens = set()
+    def tokenize_doc(self, doc):
         token_freq_per_doc = defaultdict(int)
-        token_freq = dict(Counter(tokens))
         article_content = doc['body']
         text = self.prepare_text(article_content)
         print(text, '\n\n\n')
@@ -252,34 +250,27 @@ class Indexer:
 
         pprint.pprint(token_freq_per_doc)
 
-        tf = self.add2tf(token_freq, tf)
-        return tokens, tf
+        return token_freq_per_doc
 
-    def prepare_for_idf(self, doc_tokens, token_to_article_doc):
-        for token in doc_tokens:
-            token_to_article_doc[token] = [self.articles_reader.getCurrentFileName()]
-        return token_to_article_doc
-
-    def traverseArticlePaths(self, token_to_article_doc, tf):
+    def traverseArticlePaths(self):
         self.articles_reader = ArticlesReader('/Users/blazejrypak/Projects/vinf-project/data/03-10-2021-21-13-43-article.json')
-        doc_tokens, tf = self.tokenize_doc(self.articles_reader.next(), tf)
-        token_to_article_doc = self.prepare_for_idf(doc_tokens, token_to_article_doc)
-        return token_to_article_doc, tf
+        token_freq_per_doc = self.tokenize_doc(self.articles_reader.next())
+        return token_freq_per_doc
 
-    def create_idf(self, token_to_article_doc):
-        idf = defaultdict(int)
-        for term in token_to_article_doc.keys():
-            idf[term] = len(token_to_article_doc[term])
+    def add2idf(self, tf, idf):
+        for token in tf.keys():
+            if token in idf:
+                idf[token] += 1
+            else:
+                idf[token] = 1
         return idf
 
     def run(self):
-        token_to_article_doc = defaultdict(list)
-        tf = defaultdict(list)
+        idf = defaultdict(int)
         start = time.time()
-        token_to_article_doc, tf = self.traverseArticlePaths(token_to_article_doc, tf)
-        idf = self.create_idf(token_to_article_doc)
-        pprint.pprint(tf)
-        print('\n\n\n')
+        token_freq_per_doc = self.traverseArticlePaths()
+        idf = self.add2idf(token_freq_per_doc, idf)
+        pprint.pprint(token_freq_per_doc)
         pprint.pprint(idf)
         end = time.time()
         print("running time: ", str(end - start))
