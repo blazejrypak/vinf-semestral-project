@@ -23,7 +23,7 @@ class SlovakStemmer:
         with open(file_path, 'r') as f:
             for line in f.readlines():
                 words = line.split()
-                if words[1] == word:
+                if words[0] != word and words[1] == word:
                     return words[0]
         return word
 
@@ -36,7 +36,7 @@ class SlovakStemmer:
     def init_lookup_table(self):
         for root, dirs, files in os.walk(self.lookup_table_path):
             for file in files:
-                self.lookup_table[file.split()[0]] = os.path.join(root, file)
+                self.lookup_table[file.split('.')[0]] = os.path.join(root, file)
 
     def save_lines(self, dir_name='', filename='', lines=set()):
         try:

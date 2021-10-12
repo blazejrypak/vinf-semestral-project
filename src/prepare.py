@@ -8,28 +8,7 @@ import os
 import time
 import pprint
 import gzip
-
-class SlovakStemmer:
-    def __init__(self, morf_dict_fpath):
-        self.morf_dict_path = morf_dict_fpath
-
-    def str2ascii(self, string):
-        string = unicodedata.normalize('NFD', string)
-        string = string.encode('ascii', 'ignore')
-        string = string.decode("utf-8")
-        return string
-
-    def stem_text(self, text):
-        with gzip.open(self.morf_dict_path, 'rt') as morf_dict:
-            for line in morf_dict:
-                line = self.str2ascii(line).replace('*', '')
-                words = line.split('\t')
-                try:
-                    text = re.sub(f"\\b{words[1]}\\b", words[0], text)
-                except re.error:
-                    print(words)
-                    break
-        return text
+from stemmer import SlovakStemmer
 
 class ArticlesReader():
     def __init__(self, file_path):
@@ -54,7 +33,7 @@ class Indexer:
         self.slovak_person_first_names = self.get_slovak_person_first_names('./names.txt')
         self.stop_words = self.get_stop_words('./stop_words.txt')
         self.articles_reader = None
-        # self.stemmer = SlovakStemmer('./morf_dict.txt.gz')
+        self.stemmer = SlovakStemmer()
 
     def get_slovak_person_first_names(self, file_path):
         f = open(file_path, 'r', encoding='UTF-8')
@@ -105,9 +84,7 @@ class Indexer:
         return text.replace('\n', ' ').replace('  ', ' ')
 
     def prepare_text(self, text):
-        text_a = self.clean_text(text)
-        # text = self.stemmer.stem_text(text_a)
-        # print(sum ( text_a[i] != text[i] for i in range(len(text_a)) ))
+        text = self.clean_text(text)
         return self.str2ascii(text)    
 
 
@@ -246,7 +223,10 @@ class Indexer:
         for sw in self.stop_words:
             token_freq_per_doc.pop(sw, None)
 
-
+        for tok in list(token_freq_per_doc):
+            new_tok = self.stemmer.stem(tok)
+            if new_tok != tok:
+                token_freq_per_doc[new_tok] += token_freq_per_doc.pop(tok)
 
         pprint.pprint(token_freq_per_doc)
 
