@@ -8,9 +8,6 @@ import re
 import math
 import pprint
 from docs_reader import DocsReader
-
-N = 200
-
 class SearchEngine:
     def __init__(self):
         self.tokenizer = Tokenizer()
@@ -38,7 +35,7 @@ class SearchEngine:
 
     def compute_idf(self, query, idf):
         if query in idf:
-            return math.log(N/idf[query])
+            return math.log(self.docs_reader.stats['readed_docs']/idf[query])
         else:
             return 0
 
@@ -99,7 +96,7 @@ class SearchEngine:
         docIDs = self.rank(scores)
         docs = self.docs_reader.get_docs(docIDs)
         for doc in docs:
-            print(doc['title'])
+            print(doc['url'])
 
 
 

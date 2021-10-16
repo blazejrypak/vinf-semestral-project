@@ -172,9 +172,14 @@ class Tokenizer:
     def tokenize_doc(self, document):
         return self.tokenize(document['body'])
 
+    def tokenize_hyphen_words(self, text):
+        # COVID-19, hlas-SD ...
+        return re.sub('([a-zA-Z0-9]*-[a-zA-Z0-9]*)', "", text), regex.findall('([a-zA-Z0-9]*-[a-zA-Z0-9]*)', text)
+
     def tokenize(self, text):
         tokens_in_doc = []
         text = self.prepare_text(text)
+        text, tokens = self.tokenize_hyphen_words(text)
         text, tokens = self.tokenize_persons(text)
         tokens_in_doc.extend(tokens)
         # text, tokens = self.tokenize_sub_persons(text)

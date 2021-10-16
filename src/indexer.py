@@ -13,6 +13,7 @@ import pickle
 
 from tokenizer import Tokenizer
 from docs_reader import DocsReader
+import json
 
 class Indexer:
 
@@ -41,8 +42,11 @@ class Indexer:
     
     def add2postingslist(self, tokens, fName, postingslist):
         if any(postingslist):
-            for token, term in [(token, term) for token in tokens for term in postingslist.keys() if token == term]:
-                postingslist[term].append(fName)
+            for token in tokens:
+                if token in postingslist:
+                    postingslist[token].append(fName)
+                else:
+                    postingslist[token] = [fName]
         else:
             for token in tokens:
                 postingslist[token] = [fName]

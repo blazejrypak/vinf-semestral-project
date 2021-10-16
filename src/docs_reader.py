@@ -1,29 +1,51 @@
+import pickle
 import jsonlines
 import os
+import json
+import atexit
+
 
 class DocsReader:
-    def __init__(self, file_path='/Users/blazejrypak/Projects/vinf-project/data/03-10-2021-21-13-43-article.json'):
-        self.current_file_path = file_path
-        self.reader = jsonlines.open(self.current_file_path)
+    def __init__(self):
+        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/collection/'
+        self.collection = iter(os.listdir(self.collection_path))
+        self.current_file_path = ''
         self.docID = 0
+        self.stats = {}
+        atexit.register(self.save_stats)
+        self.load_stats()
+
+    def load_stats(self):
+        try:
+            with open('docs_reader_stats.txt', 'rb') as f:
+                stats = pickle.load(f)
+                if stats:
+                    self.stats = stats
+                else:
+                    self.stats = {}
+        except (OSError, IOError) as e:
+            self.stats = {}
+
+    def save_stats(self):
+        with open('docs_reader_stats.txt', 'wb') as f:
+            pickle.dump(self.stats, f)
+        with open('docs_reader_stats_hr.txt', 'w') as f:
+            f.write(json.dumps(self.stats, indent=4, separators=(',', ': ')))
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        try:
-            self.docID += 1
-            if(self.docID == 200): raise StopIteration
-            return self.reader.read(type=dict)
-        except EOFError:
-            raise StopIteration
+        self.docID += 1
+        self.current_file_path = next(self.collection)
+        self.stats['readed_docs'] = self.docID
+        return jsonlines.open(self.collection_path + self.current_file_path).read(type=dict)
 
     def get_docID(self):
         return self.docID
 
     def get_current_filename(self):
-        head, tail = os.path.split(self.current_file_path)
-        return head.split('.')[0]
+        return self.current_file_path
 
     def get_docs(self, docIDs):
         if not any(docIDs):
