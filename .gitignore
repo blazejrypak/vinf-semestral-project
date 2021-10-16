@@ -17,3 +17,5 @@ stemmer_data/
 idf.txt
 tf.txt
 postingslist.txt
+
+/collection/**
