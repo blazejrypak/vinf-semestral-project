@@ -74,10 +74,10 @@ class Indexer:
 
     def run(self):
         """tf:
-                {term: [xtimesInDocID-0, xtimesInDocID-1, xtimesInDocID-2]}
+                {term: [xtimesInDocID-0, xtimesInDocID-1, xtimesInDocID-2, ...xTimesInDocID-X]}
 
             postingslist:
-                {term: [DocID-0-FilePath, DocID-0-FilePath, DocID-0-FilePath]}
+                {term: [DocID-0-FilePath, DocI-1-FilePath, DocID-2-FilePath]}
 
             idf:
                 {term: xtimesInAllDocs}
@@ -86,7 +86,6 @@ class Indexer:
         postingslist = defaultdict(list)
         tf = defaultdict(list)
         postingslist, tf = self.traverseDocs(tf, postingslist)
-        pprint.pprint(tf)
         idf = self.create_idf(postingslist)
         end = time.time()
         print("running time: ", str(end - start))
