@@ -40,10 +40,6 @@ class SearchEngine:
             return 0
 
     def compute_tf(self, query, docID, tf, count):
-        try:
-            a = tf[query][docID]
-        except IndexError:
-            return 0, 0
         if query in tf:
             if tf[query][docID] == 0:
                 return 0, count
