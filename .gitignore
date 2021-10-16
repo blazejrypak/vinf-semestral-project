@@ -13,3 +13,7 @@ notebooks
 
 morf_dict.txt.gz
 stemmer_data/
+
+idf.txt
+tf.txt
+postingslist.txt

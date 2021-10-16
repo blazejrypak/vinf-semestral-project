@@ -9,30 +9,37 @@ import time
 import pprint
 import gzip
 from stemmer import SlovakStemmer
+import pickle
 
-class ArticlesReader():
-    def __init__(self, file_path):
+class DocsReader():
+    def __init__(self, file_path='/Users/blazejrypak/Projects/vinf-project/data/03-10-2021-21-13-43-article.json'):
         self.current_file_path = file_path
         self.reader = jsonlines.open(self.current_file_path)
         self.docID = 0
 
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            self.docID += 1
+            if(self.docID == 200): raise StopIteration
+            return self.reader.read(type=dict)
+        except EOFError:
+            raise StopIteration
+
+    def getDocID(self):
+        return self.docID
+
     def getCurrentFileName(self):
         head, tail = os.path.split(self.current_file_path)
         return head.split('.')[0]
-
-    def next(self):
-        self.docID += 1
-        return self.reader.read(type=dict)
-
-    def getCurrentArticleID(self):
-        return self.docID
 
 class Indexer:
     def __init__(self):
         self.articles_fpaths = self.get_article_files_paths('../data')
         self.slovak_person_first_names = self.get_slovak_person_first_names('./names.txt')
         self.stop_words = self.get_stop_words('./stop_words.txt')
-        self.articles_reader = None
         self.stemmer = SlovakStemmer()
 
     def get_slovak_person_first_names(self, file_path):
@@ -88,25 +95,25 @@ class Indexer:
         return self.str2ascii(text)    
 
 
-    def tokenize_persons(self, text, token_freq_per_doc):
+    def tokenize_persons(self, text):
+        tokens = []
         for name_ in self.slovak_person_first_names:
             name = self.str2ascii(name_)
             # we can find only names without suffix, (we cant find Andrejom Dankom)
             reg_pat = f"((?:{name})(?: [A-Z][a-z]+)+)"
-            names_with_first_name = set(regex.findall(reg_pat, text))
+            names_with_first_name = regex.findall(reg_pat, text)
             for n in names_with_first_name:
                 reg_last_name_pattern = f"( )\\b(?:{n.split(' ')[-1][:-1]}[a-z]+)"
                 text = text.replace(n, "")
                 found = regex.findall(reg_last_name_pattern, text)
                 text = re.sub(reg_last_name_pattern, "", text)
-                if n not in token_freq_per_doc:
-                    token_freq_per_doc[n] = 1 + len(found)
-                else:
-                    token_freq_per_doc[n] += len(found)
-        return text, token_freq_per_doc
+                tokens.append(n)
+                tokens.extend(found)
+        return text, tokens
 
 
-    def tokenize_sub_persons(self, text, token_freq_per_doc):
+    def tokenize_sub_persons(self, text):
+        tokens = []
         # to replace person like Andrejom Dankom we need to find all words starting with capital letter
         reg_pat = "([A-Z][a-z]+)(?: )"
         all_possible_last_names = set(regex.findall(reg_pat, text))
@@ -118,40 +125,32 @@ class Indexer:
                     found = regex.findall(f"\b{pln[:-1]}(?: |\.)", text)
                     text = re.sub(self.add_name2pattern(f"\b{pln[:-1]}(?: |\.)", 'person'), "", text)
                     entity = f"{name} {pln}"
-                    if entity not in token_freq_per_doc:
-                        token_freq_per_doc[entity] = 1 + len(possible) + len(found)
-                    else:
-                        token_freq_per_doc[entity] += len(possible) + len(found)
-        return text, token_freq_per_doc
+                    tokens.extend([entity]*len(possible))
+                    tokens.extend([entity]*len(found))
+        return text, tokens
 
     def get_entities_from_article(self, text):
         return set(regex.findall("\[\[([^\]]+)\]\]", text))
 
-    def tokenize_companies(self, text, token_freq_per_doc):
+    def tokenize_companies(self, text):
         companies_suffixes = "(?:s.r.o|a.s.|j. a. s.|akc. spol.|spol. s. r. o.|s. r. o.|ver. obch. spol.|v. o. s.|kom. spol.|k. s.|š. p.|Inc|Ltd|Jr|Sr|Co)"
         pattern = f"((?:[A-Z][a-z]+)(?: [A-Z][a-z]+)* {companies_suffixes})"
         found_companies = regex.findall(pattern, text)
-        for f in found_companies:
-            token_freq_per_doc[f] = text.count(f)
-        return re.sub(self.add_name2pattern(pattern, 'company'), "", text), token_freq_per_doc
+        return re.sub(self.add_name2pattern(pattern, 'company'), "", text), found_companies
 
 
-    def tokenize_acronyms(self, text, token_freq_per_doc):
+    def tokenize_acronyms(self, text):
         end_sentence = "\.|\!|\?"
         pattern = "(?P<acronym>[A-Z]{2,})" + f"(?: |{end_sentence})"
         found = regex.findall(pattern, text)
-        for f in found:
-            token_freq_per_doc[f] = text.count(f)
-        return re.sub(pattern, "", text), token_freq_per_doc
+        return re.sub(pattern, "", text), found
 
 
-    def tokenize_websites(self, text, token_freq_per_doc):
+    def tokenize_websites(self, text):
         websites = "[.](?:sk|com|net|org|io|gov|eu|de|cz)"
         pattern = "([A-Za-z]+(?:" + websites + ")+)"
         found = regex.findall(pattern, text)
-        for f in found:
-            token_freq_per_doc[f] = text.count(f)
-        return re.sub(self.add_name2pattern(pattern, 'website'), "", text), token_freq_per_doc
+        return re.sub(self.add_name2pattern(pattern, 'website'), "", text), found
 
 
     def clean_date_formats(self, text):
@@ -172,6 +171,7 @@ class Indexer:
         text = re.sub(p1, "", text)
         text = re.sub(p2, "", text)
         text = re.sub(p3, "", text)
+        text = text.replace(',', ' ')
         return text
 
     def remove_stop_words(self, text):
@@ -184,87 +184,111 @@ class Indexer:
         text = re.sub('(\.(?: )?)([A-Z])', "<endline>\g<2>", text)
         return text.split('<endline>')
 
-    def add2tf(self, token_freq, tf):
-        new_token = True
-        for token in token_freq.keys():
+    def print_top_keywords_per_article(self, tf):
+        for w in sorted(tf, key=lambda ele: sum(1 for x in tf[ele] if x != 0), reverse=True)[:10]:
+            print(w)
+
+    def add2tf(self, tf, tf_doc, docID):
+        """Add new doc tokens tf to main TF table"""
+        for token in tf_doc.keys():
+            new_token = True
             for term in tf.keys():
                 if token == term:
+                    tf[term].append(tf_doc[token])
                     new_token = False
-                    tf[term].append(token_freq[token])
             if new_token:
-                tf[token] = [token_freq[token]]
+                tf[token] = [tf_doc[token]]
         for term in tf.keys():
-            if len(tf[term]) != self.articles_reader.getCurrentArticleID():
+            if len(tf[term]) != docID:
                 tf[term].append(0)
         return tf
 
-    def tokenize_doc(self, doc):
-        token_freq_per_doc = defaultdict(int)
-        article_content = doc['body']
+    def clean_tokens(self, tokens):
+        tokens_in_doc = []
+        for token in tokens:
+            if token.strip():
+                tokens_in_doc.append(token)
+        return tokens_in_doc
+
+    def tokenize_doc(self, document):
+        tokens_in_doc = []
+        article_content = document['body']
         text = self.prepare_text(article_content)
-        print(text, '\n\n\n')
-        text, token_freq_per_doc = self.tokenize_persons(text, token_freq_per_doc)
-        text, token_freq_per_doc = self.tokenize_sub_persons(text, token_freq_per_doc)
-        text, token_freq_per_doc = self.tokenize_companies(text, token_freq_per_doc)
-        text, token_freq_per_doc = self.tokenize_acronyms(text, token_freq_per_doc)
-        text, token_freq_per_doc = self.tokenize_websites(text, token_freq_per_doc)
+        text, tokens = self.tokenize_persons(text)
+        tokens_in_doc.extend(tokens)
+        # text, tokens = self.tokenize_sub_persons(text)
+        # tokens_in_doc.extend(tokens)
+        text, tokens = self.tokenize_companies(text)
+        tokens_in_doc.extend(tokens)
+        text, tokens = self.tokenize_acronyms(text)
+        tokens_in_doc.extend(tokens)
+        text, tokens = self.tokenize_websites(text)
+        tokens_in_doc.extend(tokens)
         text = self.clean_date_formats(text)
         text = self.clean_all(text)
-        print(text, '\n\n\n')
         sentences = self.split2sentences(text)
         for s in sentences:
             for w in s.split(' '):
-                if w not in self.stop_words:
-                    if w not in token_freq_per_doc:
-                        token_freq_per_doc[w] = 1 + text.count(w)
-                    else:
-                        token_freq_per_doc[w] += text.count(w)
-        
-        for sw in self.stop_words:
-            token_freq_per_doc.pop(sw, None)
+                tokens_in_doc.append(w.lower())
 
-        for tok in list(token_freq_per_doc):
-            new_tok = self.stemmer.stem(tok.lower())
-            if new_tok != tok.lower():
-                try:
-                    token_freq_per_doc[new_tok] += token_freq_per_doc.pop(tok)
-                except KeyError:
-                    continue
+        tokens_in_doc = self.clean_tokens(tokens_in_doc)
 
+        tokens_in_doc = [token for token in tokens_in_doc if token.lower() not in self.stop_words]
+        tokens_in_doc = [self.stemmer.stem(token) for token in tokens_in_doc]
+        tf_temp = dict(Counter(tokens_in_doc))
 
-        pprint.pprint(token_freq_per_doc)
+        return set(tokens_in_doc), tf_temp
 
-        return token_freq_per_doc
+    def add2postingslist(self, tokens, fName, postingslist):
+        if any(postingslist):
+            for token, term in [(token, term) for token in tokens for term in postingslist.keys() if token == term]:
+                postingslist[term].append(fName)
+        else:
+            for token in tokens:
+                postingslist[token] = [fName]
+        return postingslist
 
-    def traverseArticlePaths(self):
-        self.articles_reader = ArticlesReader('/Users/blazejrypak/Projects/vinf-project/data/03-10-2021-21-13-43-article.json')
-        token_freq_per_doc = self.tokenize_doc(self.articles_reader.next())
-        return token_freq_per_doc
+    def traverseDocs(self, tf, postingslist):
+        docsReader = DocsReader()
+        for document in docsReader:
+            tokens, tf_doc = self.tokenize_doc(document)
+            self.add2tf(tf, tf_doc, docsReader.getDocID())
+            postingslist = self.add2postingslist(tokens, docsReader.getCurrentFileName(), postingslist)
+        return postingslist, tf
 
-    def add2idf(self, tf, idf):
-        for token in tf.keys():
-            if token in idf:
-                idf[token] += 1
-            else:
-                idf[token] = 1
+    def create_idf(self, postingslist):
+        idf = defaultdict(int)
+        for term in postingslist.keys():
+            idf[term] = len(postingslist[term])
         return idf
 
-    def print_top_keywords_per_article(self, tf):
-        for w in sorted(tf, key=tf.get, reverse=True)[:10]:
-            print(w, tf[w])
+    def writeIO(self, filename, index):
+        with open(f'{filename}.txt', 'wb') as file:
+            pickle.dump(index, file)
+
 
     def run(self):
-        idf = defaultdict(int)
+        """tf:
+                {term: [xtimesInDocID-0, xtimesInDocID-1, xtimesInDocID-2]}
+
+            postingslist:
+                {term: [DocID-0-FilePath, DocID-0-FilePath, DocID-0-FilePath]}
+
+            idf:
+                {term: xtimesInAllDocs}
+        """
         start = time.time()
-        token_freq_per_doc = self.traverseArticlePaths()
-        idf = self.add2idf(token_freq_per_doc, idf)
-        # self.print_top_keywords_per_article(token_freq_per_doc)
-        # pprint.pprint(token_freq_per_doc)
-        # pprint.pprint(idf)
+        postingslist = defaultdict(list)
+        tf = defaultdict(list)
+        postingslist, tf = self.traverseDocs(tf, postingslist)
+        idf = self.create_idf(postingslist)
         end = time.time()
         print("running time: ", str(end - start))
+        self.writeIO('tf', tf)
+        self.writeIO('postingslist', postingslist)
+        self.writeIO('idf', idf)
+
 
 indexer = Indexer()
 indexer.run()
-
 # Dubaj 2020, COVID-19, (SaS), Hlas-SD
