@@ -27,18 +27,19 @@ class Indexer:
     def add2tf(self, tf, tf_doc, docID):
         """Add new doc tokens tf to main TF table"""
         for token in tf_doc.keys():
-            new_token = True
-            for term in tf.keys():
-                if token == term:
-                    tf[term].append(tf_doc[token])
-                    new_token = False
-            if new_token:
-                tf[token] = [tf_doc[token]]
-        for term in tf.keys():
-            if len(tf[term]) != docID:
-                tf[term].append(0)
+            if token in tf:
+                tf[token].append(tf_doc[token])
+            else:
+                zero_padding = [0]*docID
+                if len(zero_padding):
+                    tf[token].extend(zero_padding)
+                    tf[token].append(tf_doc[token])
+                else:
+                    tf[token] = [tf_doc[token]]
+        for token in tf.keys():
+            if len(tf[token]) != docID:
+                tf[token].extend([0] * (docID - len(tf[token])))
         return tf
-
     
     def add2postingslist(self, tokens, fName, postingslist):
         if any(postingslist):
@@ -85,6 +86,7 @@ class Indexer:
         postingslist = defaultdict(list)
         tf = defaultdict(list)
         postingslist, tf = self.traverseDocs(tf, postingslist)
+        pprint.pprint(tf)
         idf = self.create_idf(postingslist)
         end = time.time()
         print("running time: ", str(end - start))

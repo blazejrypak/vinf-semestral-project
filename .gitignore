@@ -15,6 +15,5 @@ morf_dict.txt.gz
 stemmer_data/
 
 *.txt
-**/*.txt
-
+/**/*.txt
 /collection/**
