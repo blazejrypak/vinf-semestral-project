@@ -37,7 +37,7 @@ class Indexer:
                 else:
                     tf[token] = [tf_doc[token]]
         for token in tf.keys():
-            if len(tf[token]) != docID:
+            if len(tf[token]) - 1 != docID:
                 tf[token].extend([0] * (docID - len(tf[token])))
         return tf
     
