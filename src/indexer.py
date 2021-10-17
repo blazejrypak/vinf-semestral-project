@@ -14,6 +14,7 @@ import pickle
 from tokenizer import Tokenizer
 from docs_reader import DocsReader
 import json
+import settings
 
 class Indexer:
 
@@ -69,7 +70,7 @@ class Indexer:
         return df
 
     def writeIO(self, filename, index):
-        with open(f'{filename}.txt', 'wb') as file:
+        with open(f'{settings.INDEX_BASE_PATH}{filename}.txt', 'wb') as file:
             pickle.dump(index, file)
 
     def run(self):

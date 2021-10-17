@@ -17,3 +17,4 @@ stemmer_data/
 *.txt
 /**/*.txt
 /collection/**
+/indexes/**

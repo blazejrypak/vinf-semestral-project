@@ -9,6 +9,7 @@ import math
 from docs_reader import DocsReader
 import numpy as np
 from  pprint import pprint
+import settings
 class SearchEngine:
     def __init__(self):
         self.tokenizer = Tokenizer()
@@ -29,7 +30,7 @@ class SearchEngine:
 
     def readIO(self, filename):
         try:
-            with open(filename, 'rb') as f:
+            with open(settings.INDEX_BASE_PATH + filename, 'rb') as f:
                 index = pickle.loads(f.read())
             return index
         except FileNotFoundError:
@@ -37,7 +38,7 @@ class SearchEngine:
             exit(1)
 
     def writeIO(self, filename, index):
-        with open(f'{filename}.txt', 'wb') as file:
+        with open(f'{settings.INDEX_BASE_PATH}{filename}.txt', 'wb') as file:
             pickle.dump(index, file)
 
     def compute_idf(self, query):

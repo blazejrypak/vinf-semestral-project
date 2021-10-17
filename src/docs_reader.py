@@ -3,11 +3,11 @@ import jsonlines
 import os
 import json
 import atexit
-
+import settings
 
 class DocsReader:
     def __init__(self):
-        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/test_collection/'
+        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/test_collection/' if settings.DEGUG else '/Users/blazejrypak/Projects/vinf-project/collection/'
         self.collection = iter(sorted(os.listdir(self.collection_path)))
         self.current_file_path = ''
         self.docID = -1
@@ -27,9 +27,9 @@ class DocsReader:
             self.stats = {}
 
     def save_stats(self):
-        with open('docs_reader_stats.txt', 'wb') as f:
+        with open(f'{settings.INDEX_BASE_PATH}docs_reader_stats.txt', 'wb') as f:
             pickle.dump(self.stats, f)
-        with open('docs_reader_stats_hr.txt', 'w') as f:
+        with open(f'{settings.INDEX_BASE_PATH}docs_reader_stats_hr.txt', 'w') as f:
             f.write(json.dumps(self.stats, indent=4, separators=(',', ': ')))
 
     def __iter__(self):
