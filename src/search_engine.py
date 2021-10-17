@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 import os
 import pickle
 from typing import OrderedDict
@@ -8,12 +8,16 @@ import re
 import math
 import pprint
 from docs_reader import DocsReader
+import numpy as np
 class SearchEngine:
     def __init__(self):
         self.tokenizer = Tokenizer()
         self.docs_reader = DocsReader()
         self.start = None
         self.end = None
+        self.tf = self.readIO("tf.txt")
+        self.df = self.readIO("df.txt")
+        self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
 
     def query_search(self):
         queries = input("Enter query: ")
@@ -24,55 +28,72 @@ class SearchEngine:
         return queries
 
     def readIO(self, filename):
-        with open(filename, 'rb') as f:
-            index = pickle.loads(f.read())
-        return index
-
+        try:
+            with open(filename, 'rb') as f:
+                index = pickle.loads(f.read())
+            return index
+        except FileNotFoundError:
+            print(f'No such file to read: {filename}')
+            exit(1)
 
     def writeIO(self, filename, index):
         with open(f'{filename}.txt', 'wb') as file:
             pickle.dump(index, file)
 
-    def compute_idf(self, query, idf):
-        if query in idf:
-            return math.log(self.docs_reader.stats['readed_docs']/idf[query])
+    def compute_idf(self, query):
+        if query in self.df:
+            return math.log(self.docs_reader.stats['readed_docs']/self.df[query])
         else:
             return 0
 
-    def compute_tf(self, query, docID, tf, count):
-        if query in tf:
-            if tf[query][docID] == 0:
-                return 0, count
-            else:
-                count = count + 1
-                return math.log(1 + tf[query][docID]), count
-        else:
-            return 0, 0
+    def compute_tf(self, query, docID):
+        if self.count_tokens_per_doc[docID] == 0:
+            return 0
+        if query in self.tf:
+            return self.tf[query][docID]/(self.count_tokens_per_doc[docID])
+        return 0
 
-    def scores(self, queries):
-        docID = 1
-        count = 0
-        scores = defaultdict(int)
-        tf = self.readIO("tf.txt")
-        idf = self.readIO("idf.txt")
-        for doc in range(0, 200):
-            score = 0
-            for query in queries:
-                if len(queries) > 1:
-                    idf_score = self.compute_idf(query, idf)
-                else:
-                    idf_score = 1
+    def compute_tf_idf(self):
+        tf_idf = defaultdict(float)
+        for docID in range(0, self.docs_reader.stats['readed_docs']):
+            for token in self.tf.keys():
+                token_tf_w = self.compute_tf(token, docID)
+                token_idf_w = self.compute_idf(token)
+                tf_idf[docID, token] = token_tf_w*token_idf_w
 
-                tf_score, flag = self.compute_tf(query, docID, tf, count)
+        return tf_idf
 
-                if flag != 0:
-                    count = flag
-                score = score + idf_score * tf_score
-            scores[docID] = score
-            docID = docID + 1
+    def matching_score(self, queries, tf_idf):
+        queries_weights = defaultdict(float)
+        for key in tf_idf.keys():
+            if key[1] in queries:
+                queries_weights[key[0]] += tf_idf[key]
 
-        self.writeIO("scores", scores)   
-        return scores, count
+        return queries_weights    
+
+    def get_total_number_of_tokens(self):
+        total = 0
+        for key in self.count_tokens_per_doc.keys():
+            total += self.count_tokens_per_doc[key]
+        return total
+
+    def vectorization(self, queries, tf_idf):
+        """We need to convert everything to vector"""
+        scores = {}
+        D = np.zeros((self.docs_reader.stats['readed_docs'], len(tf_idf.keys())))
+        for key in tf_idf.keys():
+            ind = list(self.tf.keys()).index(key[1])
+            D[key[0]][ind] = tf_idf[key]
+        
+        Q = np.zeros((1, len(tf_idf.keys())))
+        for key in tf_idf.keys():
+            if key[1] in queries:
+                ind = list(self.tf.keys()).index(key[1])
+                Q[0][ind] = tf_idf[key]
+            
+        for docID in range(D.shape[0]):
+            scores[docID] = (np.dot(Q, D[docID]) + 1)/((np.linalg.norm(Q)*np.linalg.norm(D[docID]) + 1))
+        return scores
 
     def rank(self, scores):
         ranks = OrderedDict(sorted(scores.items(), key=lambda x: x[1], reverse=True))
@@ -87,13 +108,23 @@ class SearchEngine:
         return docIDs
 
     def run(self):
+        pprint.pprint(self.tf)
         queries = self.query_search()
-        scores, count = self.scores(queries)
-        docIDs = self.rank(scores)
+        tf_idf = self.compute_tf_idf()
+        matching_score_scores = self.matching_score(queries, tf_idf)
+        cosine_similarity_scores = self.vectorization(queries, tf_idf)
+        pprint.pprint(matching_score_scores)
+        # pprint.pprint(cosine_similarity_scores)
+        print('results retrieved based on matching score: \n')
+        docIDs = self.rank(matching_score_scores)
         docs = self.docs_reader.get_docs(docIDs)
         for doc in docs:
             print(doc['url'])
-
+        print('results retrieved based on cosine similarity: \n')
+        docIDs = self.rank(cosine_similarity_scores)
+        docs = self.docs_reader.get_docs(docIDs)
+        for doc in docs:
+            print(doc['url'])
 
 
 searchEngine = SearchEngine()

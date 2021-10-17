@@ -53,24 +53,24 @@ class Indexer:
                 postingslist[token] = [fName]
         return postingslist
 
-    def traverseDocs(self, tf, postingslist):
+    def traverseDocs(self, tf, postingslist, count_tokens_per_doc):
         docsReader = DocsReader()
         for document in docsReader:
             tokens, tf_doc = self.tokenizer.tokenize_doc(document)
             self.add2tf(tf, tf_doc, docsReader.get_docID())
             postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)
-        return postingslist, tf
+            count_tokens_per_doc[docsReader.get_docID()] = len(tokens)
+        return postingslist, tf, count_tokens_per_doc
 
-    def create_idf(self, postingslist):
-        idf = defaultdict(int)
+    def create_df(self, postingslist):
+        df = defaultdict(int)
         for term in postingslist.keys():
-            idf[term] = len(postingslist[term])
-        return idf
+            df[term] = len(postingslist[term])
+        return df
 
     def writeIO(self, filename, index):
         with open(f'{filename}.txt', 'wb') as file:
             pickle.dump(index, file)
-
 
     def run(self):
         """tf:
@@ -79,19 +79,21 @@ class Indexer:
             postingslist:
                 {term: [DocID-0-FilePath, DocI-1-FilePath, DocID-2-FilePath]}
 
-            idf:
+            df:
                 {term: xtimesInAllDocs}
         """
         start = time.time()
         postingslist = defaultdict(list)
         tf = defaultdict(list)
-        postingslist, tf = self.traverseDocs(tf, postingslist)
-        idf = self.create_idf(postingslist)
+        count_tokens_per_doc = defaultdict(int)
+        postingslist, tf, count_tokens_per_doc = self.traverseDocs(tf, postingslist, count_tokens_per_doc)
+        df = self.create_df(postingslist)
         end = time.time()
         print("running time: ", str(end - start))
         self.writeIO('tf', tf)
         self.writeIO('postingslist', postingslist)
-        self.writeIO('idf', idf)
+        self.writeIO('df', df)
+        self.writeIO('count_tokens_per_doc', count_tokens_per_doc)
 
 
 indexer = Indexer()

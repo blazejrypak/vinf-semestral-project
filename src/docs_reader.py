@@ -7,7 +7,7 @@ import atexit
 
 class DocsReader:
     def __init__(self):
-        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/collection/'
+        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/test_collection/'
         self.collection = iter(os.listdir(self.collection_path))
         self.current_file_path = ''
         self.docID = 0
