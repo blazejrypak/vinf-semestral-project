@@ -88,6 +88,7 @@ class AktualitySpider(CrawlSpider):
     start_urls = ['https://www.aktuality.sk', 'https://www.aktuality.sk/spravy/slovensko/', 'https://www.aktuality.sk/regiony/',
                   'https://www.aktuality.sk/spravy/zahranicne/', 'https://www.aktuality.sk/spravy/komentare/', 'https://www.aktuality.sk/cestovanie/', 'https://www.aktuality.sk/zdravie/', 'https://www.aktuality.sk/kultura/', 'https://www.aktuality.sk/premiove-citanie/']
 
+    # start_urls = ['https://www.aktuality.sk']
     def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.options = webdriver.ChromeOptions()
@@ -134,7 +135,8 @@ class AktualitySpider(CrawlSpider):
                         for cookie in self.driver.get_cookies()}
         self.driver.quit()
         time.sleep(5)
-        yield Request(url=self.start_urls[0], cookies=self.cookies)
+        for url in self.start_urls:
+            yield Request(url=url, cookies=self.cookies)
 
     def _parse(self, response, **kwargs):
         if self.debug and self.debug_site_graph_depth < 5:
