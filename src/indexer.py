@@ -30,6 +30,8 @@ class Indexer:
             if token in tf:
                 tf[token].append(tf_doc[token])
             else:
+                if token == 'rehakova':
+                    print(docID, token, tf_doc[token])
                 zero_padding = [0]*docID
                 if len(zero_padding):
                     tf[token].extend(zero_padding)
@@ -38,7 +40,7 @@ class Indexer:
                     tf[token] = [tf_doc[token]]
         for token in tf.keys():
             if len(tf[token]) - 1 != docID:
-                tf[token].extend([0] * (docID - len(tf[token])))
+                tf[token].extend([0] * (1 + docID - len(tf[token])))
         return tf
     
     def add2postingslist(self, tokens, fName, postingslist):

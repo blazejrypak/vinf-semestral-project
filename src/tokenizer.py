@@ -77,16 +77,15 @@ class Tokenizer:
         tokens = []
         for name_ in self.slovak_person_first_names:
             name = self.str2ascii(name_)
-            # we can find only names without suffix, (we cant find Andrejom Dankom)
             reg_pat = f"((?:{name})(?: [A-Z][a-z]+)+)"
             names_with_first_name = regex.findall(reg_pat, text)
             for n in names_with_first_name:
-                reg_last_name_pattern = f"( )\\b(?:{n.split(' ')[-1][:-1]}[a-z]+)"
+                reg_last_name_pattern = f"(?: )\\b(?:{n.split(' ')[-1][:-1]}[a-z]+)"
                 text = text.replace(n, "")
                 found = regex.findall(reg_last_name_pattern, text)
                 text = re.sub(reg_last_name_pattern, "", text)
-                tokens.append(n)
-                tokens.extend(found)
+                tokens.extend(str(n).lower().split(' '))
+                tokens.extend((str(n).lower().split(' '))*len(found))
         return text, tokens
 
 
@@ -114,6 +113,7 @@ class Tokenizer:
         companies_suffixes = "(?:s.r.o|a.s.|j. a. s.|akc. spol.|spol. s. r. o.|s. r. o.|ver. obch. spol.|v. o. s.|kom. spol.|k. s.|š. p.|Inc|Ltd|Jr|Sr|Co)"
         pattern = f"((?:[A-Z][a-z]+)(?: [A-Z][a-z]+)* {companies_suffixes})"
         found_companies = regex.findall(pattern, text)
+        found_companies = [str(x).lower() for x in found_companies]
         return re.sub(self.add_name2pattern(pattern, 'company'), "", text), found_companies
 
 
@@ -121,6 +121,7 @@ class Tokenizer:
         end_sentence = "\.|\!|\?"
         pattern = "(?P<acronym>[A-Z]{2,})" + f"(?: |{end_sentence})"
         found = regex.findall(pattern, text)
+        found = [str(x).lower() for x in found]
         return re.sub(pattern, "", text), found
 
 
@@ -128,6 +129,7 @@ class Tokenizer:
         websites = "[.](?:sk|com|net|org|io|gov|eu|de|cz)"
         pattern = "([A-Za-z]+(?:" + websites + ")+)"
         found = regex.findall(pattern, text)
+        found = [str(x).lower() for x in found]
         return re.sub(self.add_name2pattern(pattern, 'website'), "", text), found
 
 

@@ -8,9 +8,9 @@ import atexit
 class DocsReader:
     def __init__(self):
         self.collection_path = '/Users/blazejrypak/Projects/vinf-project/test_collection/'
-        self.collection = iter(os.listdir(self.collection_path))
+        self.collection = iter(sorted(os.listdir(self.collection_path)))
         self.current_file_path = ''
-        self.docID = 0
+        self.docID = -1
         self.stats = {}
         atexit.register(self.save_stats)
         self.load_stats()
@@ -38,7 +38,7 @@ class DocsReader:
     def __next__(self):
         self.docID += 1
         self.current_file_path = next(self.collection)
-        self.stats['readed_docs'] = self.docID
+        self.stats['readed_docs'] = self.docID + 1
         return jsonlines.open(self.collection_path + self.current_file_path).read(type=dict)
 
     def get_docID(self):
