@@ -30,8 +30,6 @@ class Indexer:
             if token in tf:
                 tf[token].append(tf_doc[token])
             else:
-                if token == 'rehakova':
-                    print(docID, token, tf_doc[token])
                 zero_padding = [0]*docID
                 if len(zero_padding):
                     tf[token].extend(zero_padding)
