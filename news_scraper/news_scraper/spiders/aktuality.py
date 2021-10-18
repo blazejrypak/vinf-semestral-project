@@ -85,10 +85,10 @@ class ArticleSpider(scrapy.Spider):
 class AktualitySpider(CrawlSpider):
     name = 'aktuality'
     allowed_domains = ['aktuality.sk']
-    start_urls = ['https://www.aktuality.sk', 'https://www.aktuality.sk/spravy/slovensko/', 'https://www.aktuality.sk/regiony/',
-                  'https://www.aktuality.sk/spravy/zahranicne/', 'https://www.aktuality.sk/spravy/komentare/', 'https://www.aktuality.sk/cestovanie/', 'https://www.aktuality.sk/zdravie/', 'https://www.aktuality.sk/kultura/', 'https://www.aktuality.sk/premiove-citanie/']
+    # start_urls = ['https://www.aktuality.sk', 'https://www.aktuality.sk/spravy/slovensko/', 'https://www.aktuality.sk/regiony/',
+    #               'https://www.aktuality.sk/spravy/zahranicne/', 'https://www.aktuality.sk/spravy/komentare/', 'https://www.aktuality.sk/cestovanie/', 'https://www.aktuality.sk/zdravie/', 'https://www.aktuality.sk/kultura/', 'https://www.aktuality.sk/premiove-citanie/']
 
-    # start_urls = ['https://www.aktuality.sk']
+    start_urls = ['https://www.aktuality.sk']
     def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.options = webdriver.ChromeOptions()
@@ -105,13 +105,12 @@ class AktualitySpider(CrawlSpider):
         allow=r"www.aktuality.sk/clanok/[a-zA-Z0-9]*/", allow_domains='aktuality.sk', unique=True)
     pagination_link_extractor = LinkExtractor(
         allow=r"www.aktuality.sk/spravy/.*/\d/", allow_domains='aktuality.sk', unique=True)
-    # section_link_extractor = LinkExtractor(
-    #     allow=r"www.aktuality.sk/spravy/.*/", allow_domains='aktuality.sk', unique=True)
+    section_link_extractor = LinkExtractor(
+        allow=r"www.aktuality.sk/spravy/.*/", allow_domains='aktuality.sk', unique=True)
     rules = [
-        # Rule(section_link_extractor, process_request='process_request_cookies'),
-        Rule(pagination_link_extractor, process_request='process_request_cookies'),
-        Rule(article_link_extractor, callback='parse_article',
-             process_request='process_request_cookies'),
+        Rule(section_link_extractor, process_request='process_request_cookies', follow=True),
+        Rule(pagination_link_extractor, process_request='process_request_cookies', follow=True),
+        Rule(article_link_extractor, callback='parse_article', process_request='process_request_cookies'),
     ]
 
     def process_exception(self, request, exception, spider):
