@@ -124,19 +124,30 @@ class AktualitySpider(CrawlSpider):
         # request.headers = headers # not working why?
         return request
 
-    def start_requests(self):
+    def login(self):
+        self.logger.info('Openning login page')
         self.driver.get(self.login_page)
         time.sleep(5)
         self.driver.find_element(By.ID, ('account-email')).send_keys(EMAIL)
         self.driver.find_element(By.ID, ('password')).send_keys(PASSWORD)
         self.driver.find_element(By.CSS_SELECTOR, ('.submit-btn')).click()
         time.sleep(5)
+        self.logger.info('Gonna get session cookies')
         self.cookies = {cookie['name']: cookie['value']
                         for cookie in self.driver.get_cookies()}
         self.driver.quit()
         time.sleep(5)
+        self.logger.info('Successfully logged in')
+
+    def open_spider(self, spider):
+        self.login()
+
+    def start_requests(self):
+        if not self.cookies:
+            self.login()
+        self.logger.info('Starting scraping...')
         for url in self.start_urls:
-            yield Request(url=url, cookies=self.cookies)
+            yield Request(url=url, cookies=self.cookies, dont_filter=True)
 
     def _parse(self, response, **kwargs):
         if self.debug and self.debug_site_graph_depth < 5:
