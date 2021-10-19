@@ -18,4 +18,4 @@ stemmer_data/
 /**/*.txt
 /collection/**
 /indexes/**
-/test_collection/**
+# /test_collection/**
