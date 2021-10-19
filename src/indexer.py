@@ -15,11 +15,14 @@ from tokenizer import Tokenizer
 from docs_reader import DocsReader
 import json
 import settings
+import networkx as nx
+from itertools import combinations
 
 class Indexer:
 
     def __init__(self):
         self.tokenizer = Tokenizer()
+        self.G = self.load_graph()
     
     def print_top_keywords_per_article(self, tf):
         for w in sorted(tf, key=lambda ele: sum(1 for x in tf[ele] if x != 0), reverse=True)[:10]:
@@ -54,10 +57,25 @@ class Indexer:
                 postingslist[token] = [fName]
         return postingslist
 
+    def save_graph(self):
+        nx.write_gml(self.G, f'{settings.GRAPH_BASE_PATH}index.gml')
+    
+    def load_graph(self):
+        try:
+            return nx.read_gml(f'{settings.GRAPH_BASE_PATH}index.gml')
+        except FileNotFoundError or nx.NetworkXError:
+            return nx.Graph()
+
     def traverseDocs(self, tf, postingslist, count_tokens_per_doc):
         docsReader = DocsReader()
         for document in docsReader:
             tokens, tf_doc = self.tokenizer.tokenize_doc(document)
+            for edge in combinations(self.tokenizer.person_entities, 2):
+                if len(edge) == 2:
+                    self.G.add_edge(edge[0], edge[1])
+            for edge in combinations(self.tokenizer.company_entities, 2):
+                if len(edge) == 2:
+                    self.G.add_edge(edge[0], edge[1])
             self.add2tf(tf, tf_doc, docsReader.get_docID())
             postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)
             count_tokens_per_doc[docsReader.get_docID()] = len(tokens)
@@ -95,6 +113,7 @@ class Indexer:
         self.writeIO('postingslist', postingslist)
         self.writeIO('df', df)
         self.writeIO('count_tokens_per_doc', count_tokens_per_doc)
+        self.save_graph()
 
 
 indexer = Indexer()
