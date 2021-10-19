@@ -12,6 +12,7 @@ from pprint import pprint
 import settings
 import networkx as nx
 import matplotlib.pyplot as plt
+import regex
 
 
 class SearchEngine:
@@ -24,6 +25,17 @@ class SearchEngine:
         self.df = self.readIO("df.txt")
         self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
         self.G = self.load_graph()
+        self.tf_idf = self.load_tf_idf_index()
+
+    def load_tf_idf_index(self):
+        try:
+            with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'rb') as f:
+                return pickle.loads(f.read())
+        except FileNotFoundError:
+            index = self.compute_tf_idf()
+            with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'wb') as f:
+                pickle.dump(index, f)
+            return index
 
     def load_graph(self):
         try:
@@ -36,12 +48,12 @@ class SearchEngine:
             print("If you want find connections between entities write them in this format: connections: <Robert Fico>; <Peter Pellegrini>; ...")
         queries = input("Enter query: ")
         if self.G is not None:
-            any_connections = re.findall('connections:.*;', queries)
+            any_connections = regex.findall('connections:.*;', queries)
             connections_entities_to_find = []
             for connections in any_connections:
-                entities = connections.findall('<([a-zA-Z ]*)>', connections)
-                connections_entities_to_find.append(entities)
-        self.start = time.time()
+                connections = connections.replace('connections:', '')
+                entities = regex.findall('([a-zA-Z ]*)', connections)
+                connections_entities_to_find.append([entity.strip() for entity in entities if entity != ''])
         queries = queries.lower()
         queries = re.sub('[^a-z0-9 ]', ' ', queries)  # clean queries
         queries, temp = self.tokenizer.tokenize(queries)
@@ -134,45 +146,50 @@ class SearchEngine:
         return docIDs
 
     def run(self):
+        start = time.time()
         queries_tf, connections_entities_to_find = self.query_search()
-        tf_idf = self.compute_tf_idf()
         matching_score_scores = self.matching_score(
-            list(queries_tf.keys()), tf_idf)
+            list(queries_tf.keys()), self.tf_idf)
+
         # cosine_similarity_scores = self.vectorization(list(queries_tf.keys()), tf_idf)
-        # pprint(matching_score_scores)
-        # pprint.pprint(cosine_similarity_scores)
+        # pprint(cosine_similarity_scores)
         # print('results retrieved based on matching score: \n')
+
         docIDs = self.rank(matching_score_scores)
         docs = self.docs_reader.get_docs(docIDs)
         for doc in docs:
             print(doc['url'])
+            print(doc['title'])
+            print()
+
         # print('results retrieved based on cosine similarity: \n')
         # docIDs = self.rank(cosine_similarity_scores)
         # docs = self.docs_reader.get_docs(docIDs)
         # for doc in docs:
         #     print(doc['url'])
+
         for connections_entities in connections_entities_to_find:
-            neighbors = []
+            neighbors = None
             for entity in connections_entities:
-                neighbors.extend(self.G.adj[entity])
-            print(connections_entities, ': ')
-            print(set(neighbors))
-        # pos = nx.spring_layout(self.G)
+                try:
+                    neighbors = self.G[entity].copy()
+                except KeyError:
+                    pass
+            if neighbors:
+                print('\n', connections_entities[0], ': ', ', '.join(list(neighbors.keys())))
+        # plt.figure(figsize=(10, 10))
+        # pos = nx.nx_agraph.graphviz_layout(self.G)
         # nx.draw_networkx(self.G, pos=pos)
         # options = {
-        #     "font_size": 36,
-        #     "node_size": 3000,
-        #     "node_color": "white",
-        #     "edgecolors": "black",
-        #     "linewidths": 5,
-        #     "width": 5,
+        #     "font_size": 12,
         # }
         # ax = plt.gca(options=options)
-        # ax.margins(0.3)
-        # ax.margins(0.20)
-        # plt.axis("off")
+        # ax.margins(0.1)
+        # plt.axis("equal")
         # plt.rcParams["figure.autolayout"] = True
         # plt.show()
+        end = time.time()
+        print("running time: ", str(end - start))
 
 
 searchEngine = SearchEngine()
