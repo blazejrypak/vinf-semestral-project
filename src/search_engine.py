@@ -8,8 +8,13 @@ import re
 import math
 from docs_reader import DocsReader
 import numpy as np
-from  pprint import pprint
+from pprint import pprint
 import settings
+import networkx as nx
+import matplotlib.pyplot as plt
+import regex
+
+
 class SearchEngine:
     def __init__(self):
         self.tokenizer = Tokenizer()
@@ -19,14 +24,40 @@ class SearchEngine:
         self.tf = self.readIO("tf.txt")
         self.df = self.readIO("df.txt")
         self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
+        self.G = self.load_graph()
+        self.tf_idf = self.load_tf_idf_index()
+
+    def load_tf_idf_index(self):
+        try:
+            with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'rb') as f:
+                return pickle.loads(f.read())
+        except FileNotFoundError:
+            index = self.compute_tf_idf()
+            with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'wb') as f:
+                pickle.dump(index, f)
+            return index
+
+    def load_graph(self):
+        try:
+            return nx.read_gml(f'{settings.GRAPH_BASE_PATH}index.gml')
+        except nx.NetworkXError:
+            return None
 
     def query_search(self):
+        if self.G is not None:
+            print("If you want find connections between entities write them in this format: connections: <Robert Fico>; <Peter Pellegrini>; ...")
         queries = input("Enter query: ")
-        self.start = time.time()
+        if self.G is not None:
+            any_connections = regex.findall('connections:.*;', queries)
+            connections_entities_to_find = []
+            for connections in any_connections:
+                connections = connections.replace('connections:', '')
+                entities = regex.findall('([a-zA-Z ]*)', connections)
+                connections_entities_to_find.append([entity.strip() for entity in entities if entity != ''])
         queries = queries.lower()
-        queries = re.sub('[^a-z0-9 ]', ' ', queries) # clean queries
+        queries = re.sub('[^a-z0-9 ]', ' ', queries)  # clean queries
         queries, temp = self.tokenizer.tokenize(queries)
-        return temp
+        return temp, connections_entities_to_find
 
     def readIO(self, filename):
         try:
@@ -70,7 +101,7 @@ class SearchEngine:
             if key[1] in queries:
                 queries_weights[key[0]] = tf_idf[key]
 
-        return queries_weights    
+        return queries_weights
 
     def get_total_number_of_tokens(self):
         total = 0
@@ -80,17 +111,18 @@ class SearchEngine:
 
     def vectorization(self, queries, tf_idf):
         scores = {}
-        D = np.zeros((self.docs_reader.stats['readed_docs'], len(tf_idf.keys())))
+        D = np.zeros(
+            (self.docs_reader.stats['readed_docs'], len(tf_idf.keys())))
         for key in tf_idf.keys():
             ind = list(self.tf.keys()).index(key[1])
             D[key[0]][ind] = tf_idf[key]
-        
+
         Q = np.zeros((1, len(tf_idf.keys())))
         for key in tf_idf.keys():
             if key[1] in queries:
                 ind = list(self.tf.keys()).index(key[1])
                 Q[0][ind] = tf_idf[key]
-            
+
         for docID in range(D.shape[0]):
             product = np.dot(Q, D[docID])
             norms = np.linalg.norm(Q)*np.linalg.norm(D[docID])
@@ -101,7 +133,8 @@ class SearchEngine:
         return scores
 
     def rank(self, scores):
-        ranks = OrderedDict(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+        ranks = OrderedDict(
+            sorted(scores.items(), key=lambda x: x[1], reverse=True))
         # self.writeIO("ranks", ranks)
         docIDs = []
         for k, v in ranks.items():
@@ -113,23 +146,50 @@ class SearchEngine:
         return docIDs
 
     def run(self):
-        pprint(self.tf)
-        queries_tf = self.query_search()
-        tf_idf = self.compute_tf_idf()
-        matching_score_scores = self.matching_score(list(queries_tf.keys()), tf_idf)
+        start = time.time()
+        queries_tf, connections_entities_to_find = self.query_search()
+        matching_score_scores = self.matching_score(
+            list(queries_tf.keys()), self.tf_idf)
+
         # cosine_similarity_scores = self.vectorization(list(queries_tf.keys()), tf_idf)
-        # pprint(matching_score_scores)
-        # pprint.pprint(cosine_similarity_scores)
+        # pprint(cosine_similarity_scores)
         # print('results retrieved based on matching score: \n')
+
         docIDs = self.rank(matching_score_scores)
         docs = self.docs_reader.get_docs(docIDs)
         for doc in docs:
             print(doc['url'])
+            print(doc['title'])
+            print()
+
         # print('results retrieved based on cosine similarity: \n')
         # docIDs = self.rank(cosine_similarity_scores)
         # docs = self.docs_reader.get_docs(docIDs)
         # for doc in docs:
         #     print(doc['url'])
+
+        for connections_entities in connections_entities_to_find:
+            neighbors = None
+            for entity in connections_entities:
+                try:
+                    neighbors = self.G[entity].copy()
+                except KeyError:
+                    pass
+            if neighbors:
+                print('\n', connections_entities[0], ': ', ', '.join(list(neighbors.keys())))
+        # plt.figure(figsize=(10, 10))
+        # pos = nx.nx_agraph.graphviz_layout(self.G)
+        # nx.draw_networkx(self.G, pos=pos)
+        # options = {
+        #     "font_size": 12,
+        # }
+        # ax = plt.gca(options=options)
+        # ax.margins(0.1)
+        # plt.axis("equal")
+        # plt.rcParams["figure.autolayout"] = True
+        # plt.show()
+        end = time.time()
+        print("running time: ", str(end - start))
 
 
 searchEngine = SearchEngine()

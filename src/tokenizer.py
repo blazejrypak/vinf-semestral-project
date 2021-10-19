@@ -20,6 +20,8 @@ class Tokenizer:
         self.slovak_person_first_names = self.get_slovak_person_first_names('./names.txt')
         self.stop_words = self.get_stop_words('./stop_words.txt')
         self.stemmer = SlovakStemmer()
+        self.person_entities = list()
+        self.company_entities = list()
 
     def get_stop_words(self, file_path):
         f = open(file_path, 'r', encoding='UTF-8')
@@ -84,6 +86,7 @@ class Tokenizer:
                 text = text.replace(n, "")
                 found = regex.findall(reg_last_name_pattern, text)
                 text = re.sub(reg_last_name_pattern, "", text)
+                self.person_entities.append(n)
                 tokens.extend(str(n).lower().split(' '))
                 tokens.extend((str(n).lower().split(' '))*len(found))
         return text, tokens
@@ -113,6 +116,7 @@ class Tokenizer:
         companies_suffixes = "(?:s.r.o|a.s.|j. a. s.|akc. spol.|spol. s. r. o.|s. r. o.|ver. obch. spol.|v. o. s.|kom. spol.|k. s.|š. p.|Inc|Ltd|Jr|Sr|Co)"
         pattern = f"((?:[A-Z][a-z]+)(?: [A-Z][a-z]+)* {companies_suffixes})"
         found_companies = regex.findall(pattern, text)
+        self.company_entities.extend(found_companies)
         found_companies = [str(x).lower() for x in found_companies]
         return re.sub(self.add_name2pattern(pattern, 'company'), "", text), found_companies
 
@@ -179,6 +183,8 @@ class Tokenizer:
         return re.sub('([a-zA-Z0-9]*-[a-zA-Z0-9]*)', "", text), regex.findall('([a-zA-Z0-9]*-[a-zA-Z0-9]*)', text)
 
     def tokenize(self, text):
+        self.person_entities.clear()
+        self.company_entities.clear()
         tokens_in_doc = []
         text = self.prepare_text(text)
         text, tokens = self.tokenize_hyphen_words(text)

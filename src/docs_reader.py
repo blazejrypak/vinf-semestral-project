@@ -17,7 +17,7 @@ class DocsReader:
 
     def load_stats(self):
         try:
-            with open('docs_reader_stats.txt', 'rb') as f:
+            with open(f'{settings.INDEX_BASE_PATH}docs_reader_stats.txt', 'rb') as f:
                 stats = pickle.load(f)
                 if stats:
                     self.stats = stats
