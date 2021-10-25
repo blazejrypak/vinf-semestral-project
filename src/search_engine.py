@@ -21,11 +21,14 @@ class SearchEngine:
         self.docs_reader = DocsReader()
         self.start = None
         self.end = None
-        self.tf = self.readIO("tf.txt")
-        self.df = self.readIO("df.txt")
-        self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
-        self.G = self.load_graph()
+        self.tf = None
+        self.df = None
+        self.count_tokens_per_doc = None
         self.tf_idf = self.load_tf_idf_index()
+        if self.tf_idf is None:
+            self.tf = self.readIO("tf.txt")
+            self.df = self.readIO("df.txt")
+            self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
 
     def load_tf_idf_index(self):
         try:
@@ -44,16 +47,16 @@ class SearchEngine:
             return None
 
     def query_search(self):
-        if self.G is not None:
-            print("If you want find connections between entities write them in this format: connections: <Robert Fico>; <Peter Pellegrini>; ...")
+        print("If you want find connections between entities write them in this format: connections: <Robert Fico>; <Peter Pellegrini>; ...")
         queries = input("Enter query: ")
-        if self.G is not None:
-            any_connections = regex.findall('connections:.*;', queries)
-            connections_entities_to_find = []
-            for connections in any_connections:
-                connections = connections.replace('connections:', '')
-                entities = regex.findall('([a-zA-Z ]*)', connections)
-                connections_entities_to_find.append([entity.strip() for entity in entities if entity != ''])
+
+        any_connections = re.search('connections:.*;', queries)
+        if any_connections:
+            self.G = self.load_graph()
+            any_connections = any_connections.group(0).replace('connections:', '')
+            entities = regex.findall('([a-zA-Z ]*)', any_connections)
+            connections_entities_to_find = [entity.strip() for entity in entities if entity != '']
+
         queries = queries.lower()
         queries = re.sub('[^a-z0-9 ]', ' ', queries)  # clean queries
         queries, temp = self.tokenizer.tokenize(queries)
@@ -147,7 +150,7 @@ class SearchEngine:
 
     def run(self):
         start = time.time()
-        queries_tf, connections_entities_to_find = self.query_search()
+        queries_tf, connections_entities = self.query_search()
         matching_score_scores = self.matching_score(
             list(queries_tf.keys()), self.tf_idf)
 
@@ -167,16 +170,15 @@ class SearchEngine:
         # docs = self.docs_reader.get_docs(docIDs)
         # for doc in docs:
         #     print(doc['url'])
+        neighbors = set()
+        for entity in connections_entities:
+            try:
+                neighbors.update(self.G[entity].copy())
+            except KeyError:
+                pass
+        if neighbors:
+            print('\n', connections_entities, ': ', ', '.join(list(neighbors - set(connections_entities))[:10]))
 
-        for connections_entities in connections_entities_to_find:
-            neighbors = None
-            for entity in connections_entities:
-                try:
-                    neighbors = self.G[entity].copy()
-                except KeyError:
-                    pass
-            if neighbors:
-                print('\n', connections_entities[0], ': ', ', '.join(list(neighbors.keys())))
         # plt.figure(figsize=(10, 10))
         # pos = nx.nx_agraph.graphviz_layout(self.G)
         # nx.draw_networkx(self.G, pos=pos)
