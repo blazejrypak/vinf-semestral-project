@@ -39,7 +39,10 @@ class DocsReader:
         self.docID += 1
         self.current_file_path = next(self.collection)
         self.stats['readed_docs'] = self.docID + 1
-        return jsonlines.open(self.collection_path + self.current_file_path).read(type=dict)
+        try:
+            return jsonlines.open(self.collection_path + self.current_file_path).read(type=dict)
+        except Exception as e:
+            self.__next__()
 
     def get_docID(self):
         return self.docID

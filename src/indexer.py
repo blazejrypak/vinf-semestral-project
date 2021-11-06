@@ -17,12 +17,13 @@ import json
 import settings
 import networkx as nx
 from itertools import combinations
+import math
 
 class Indexer:
 
     def __init__(self):
         self.tokenizer = Tokenizer()
-        self.G = self.load_graph()
+        self.G = nx.Graph()
     
     def print_top_keywords_per_article(self, tf):
         for w in sorted(tf, key=lambda ele: sum(1 for x in tf[ele] if x != 0), reverse=True)[:10]:
@@ -69,13 +70,21 @@ class Indexer:
     def traverseDocs(self, tf, postingslist, count_tokens_per_doc):
         docsReader = DocsReader()
         for document in docsReader:
+            if not document:
+                continue
             tokens, tf_doc = self.tokenizer.tokenize_doc(document)
-            for edge in combinations(self.tokenizer.person_entities, 2):
-                if len(edge) == 2:
-                    self.G.add_edge(edge[0], edge[1])
-            for edge in combinations(self.tokenizer.company_entities, 2):
-                if len(edge) == 2:
-                    self.G.add_edge(edge[0], edge[1])
+            entities = self.tokenizer.person_entities
+            entities.extend(self.tokenizer.company_entities)
+            if entities:
+                for edge in combinations(set(entities), 2):
+                    if len(edge) == 2:
+                        if self.G.has_edge(*edge): # add weight
+                            print(edge)
+                            self.G[edge[0]][edge[1]] += 1
+                            self.G[edge[1]][edge[0]] += 1
+                        else:
+                            self.G.add_edge(edge[0], edge[1], weight = 1)
+
             self.add2tf(tf, tf_doc, docsReader.get_docID())
             postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)
             count_tokens_per_doc[docsReader.get_docID()] = len(tokens)
@@ -118,4 +127,3 @@ class Indexer:
 
 indexer = Indexer()
 indexer.run()
-# Dubaj 2020, COVID-19, (SaS), Hlas-SD

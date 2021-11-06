@@ -21,3 +21,5 @@ stemmer_data/
 # /test_collection/**
 .ipynb_checkpoints
 /**/*.gml
+
+/test_collection/**

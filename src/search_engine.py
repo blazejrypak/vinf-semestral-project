@@ -51,11 +51,14 @@ class SearchEngine:
         queries = input("Enter query: ")
 
         any_connections = re.search('connections:.*;', queries)
+        connections_entities_to_find = []
         if any_connections:
             self.G = self.load_graph()
-            any_connections = any_connections.group(0).replace('connections:', '')
+            any_connections = any_connections.group(
+                0).replace('connections:', '')
             entities = regex.findall('([a-zA-Z ]*)', any_connections)
-            connections_entities_to_find = [entity.strip() for entity in entities if entity != '']
+            connections_entities_to_find = [
+                entity.strip() for entity in entities if entity != '']
 
         queries = queries.lower()
         queries = re.sub('[^a-z0-9 ]', ' ', queries)  # clean queries
@@ -148,50 +151,60 @@ class SearchEngine:
                 break
         return docIDs
 
+    def terminal_show_commands(self):
+        print('If you want to exit program, them enter: exit')
+        print("If you want find connections between entities write them in this format: connections: <Robert Fico>; <Peter Pellegrini>; ...")
+        print('Enter query: ')
+
+    def get_connections_if_any(self, query):
+        any_connections = re.search('connections:.*;', query)
+        connections_entities_to_find = []
+        if any_connections:
+            self.G = self.load_graph()
+            any_connections = any_connections.group(
+                0).replace('connections:', '')
+            entities = regex.findall('([a-zA-Z ]*)', any_connections)
+            connections_entities_to_find = [
+                entity.strip() for entity in entities if entity != '']
+        return connections_entities_to_find
+
+    def get_clean_query_tf(self, query):
+        query = query.replace('connections:', '')
+        query = re.sub(';', '', query)
+        query, queries_tf = self.tokenizer.tokenize(query)
+        return queries_tf
+
     def run(self):
-        start = time.time()
-        queries_tf, connections_entities = self.query_search()
-        matching_score_scores = self.matching_score(
-            list(queries_tf.keys()), self.tf_idf)
+        while True:
+            self.terminal_show_commands()
+            command = input()
+            if command == "exit":
+                break
+            else:
+                start = time.time()
+                connections_entities = self.get_connections_if_any(command)
+                query_tf = self.get_clean_query_tf(command)
+                matching_score_scores = self.matching_score(
+                    list(query_tf.keys()), self.tf_idf)
+                docIDs = self.rank(matching_score_scores)
+                docs = self.docs_reader.get_docs(docIDs)
+                for doc in docs:
+                    print(doc['title'])
+                    print(doc['url'])
+                    print()
 
-        # cosine_similarity_scores = self.vectorization(list(queries_tf.keys()), tf_idf)
-        # pprint(cosine_similarity_scores)
-        # print('results retrieved based on matching score: \n')
-
-        docIDs = self.rank(matching_score_scores)
-        docs = self.docs_reader.get_docs(docIDs)
-        for doc in docs:
-            print(doc['url'])
-            print(doc['title'])
-            print()
-
-        # print('results retrieved based on cosine similarity: \n')
-        # docIDs = self.rank(cosine_similarity_scores)
-        # docs = self.docs_reader.get_docs(docIDs)
-        # for doc in docs:
-        #     print(doc['url'])
-        neighbors = set()
-        for entity in connections_entities:
-            try:
-                neighbors.update(self.G[entity].copy())
-            except KeyError:
-                pass
-        if neighbors:
-            print('\n', connections_entities, ': ', ', '.join(list(neighbors - set(connections_entities))[:10]))
-
-        # plt.figure(figsize=(10, 10))
-        # pos = nx.nx_agraph.graphviz_layout(self.G)
-        # nx.draw_networkx(self.G, pos=pos)
-        # options = {
-        #     "font_size": 12,
-        # }
-        # ax = plt.gca(options=options)
-        # ax.margins(0.1)
-        # plt.axis("equal")
-        # plt.rcParams["figure.autolayout"] = True
-        # plt.show()
-        end = time.time()
-        print("running time: ", str(end - start))
+                neighbors = set()
+                for entity in connections_entities:
+                    try:
+                        neighbors.update(x[0] for x in sorted(
+                            self.G[entity].items(), key=lambda edge: edge[1]['weight']))
+                    except KeyError:
+                        pass
+                if neighbors:
+                    print('\n', connections_entities, ': ', ', '.join(
+                        list(neighbors - set(connections_entities))[:10]))
+                end = time.time()
+                print("running time: ", str(end - start))
 
 
 searchEngine = SearchEngine()
