@@ -176,7 +176,12 @@ class Tokenizer:
         return tokens_in_doc
 
     def tokenize_doc(self, document):
-        return self.tokenize(document['body'])
+        document_content = ''
+        if document.get('title', None):
+            document_content += document['title'] + ' '
+        if document.get('body', None):    
+            document_content += document['body']
+        return self.tokenize(document_content)
 
     def tokenize_hyphen_words(self, text):
         # COVID-19, hlas-SD ...

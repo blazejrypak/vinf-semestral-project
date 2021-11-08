@@ -26,8 +26,9 @@ class SearchEngine:
         self.count_tokens_per_doc = None
         self.tf_idf = self.load_tf_idf_index()
         self.docID2docFileName = self.readIO('docID2docFileName.txt')
-        if self.tf_idf is None:
-            self.load_indexes()
+        # if self.tf_idf is None:
+        self.load_indexes()
+        pprint(self.tf)
             
     def load_indexes(self):
         self.tf = self.readIO("tf.txt")
@@ -77,49 +78,63 @@ class SearchEngine:
             return self.tf[query][docID]/self.count_tokens_per_doc[docID]
         return 0
 
-    def compute_tf_idf(self):
-        """
-        Compute TF-IDF table
+    # def compute_tf_idf(self):
+    #     """
+    #     Compute TF-IDF table
 
-        Returns:
-            {
-                [docID][token] = weight
-            }
-        """
-        tf_idf = defaultdict(float)
+    #     Returns:
+    #         {
+    #             [docID][token] = weight
+    #         }
+            
+            
+    #         {
+    #             [token] = {
+    #                 [docID] = weight
+    #             }
+    #         }
+    #     """
+    #     tf_idf = defaultdict(float)
+    #     for docID in range(self.docs_reader.stats['readed_docs']):
+    #         for token in self.tf.keys():
+    #             token_tf_w = self.compute_tf(token, docID)
+    #             token_idf_w = self.compute_idf(token)
+    #             tf_idf[docID, token] = token_tf_w*token_idf_w
+
+    #     return tf_idf
+    
+    def compute_tf_idf(self): 
+        tf_idf = defaultdict(dict)
         for docID in range(self.docs_reader.stats['readed_docs']):
             for token in self.tf.keys():
                 token_tf_w = self.compute_tf(token, docID)
                 token_idf_w = self.compute_idf(token)
-                tf_idf[docID, token] = token_tf_w*token_idf_w
-
+                if tf_idf.get(token, None):
+                    tf_idf[token][docID] = token_tf_w*token_idf_w
+                else:
+                    tf_idf[token] = {docID: token_tf_w*token_idf_w}
         return tf_idf
 
     def matching_score(self, queries, tf_idf):
         queries_weights = defaultdict(float)
-        temp = defaultdict(int)
+        for token in queries:
+            if tf_idf.get(token, None):
+                docs_weights = tf_idf[token]
+                for docID in docs_weights.keys():
+                    if queries_weights.get(docID, None):
+                        if queries_weights[docID] == -1:
+                            continue
+                        else:
+                            queries_weights[docID] += docs_weights[docID]
+                    else:
+                        if self.tf[token][docID] != 0:
+                            queries_weights[docID] += docs_weights[docID]
+                        else:
+                            queries_weights[docID] = -1
         
-        for key in tf_idf.keys():
-            if key[1] in queries:
-                if queries_weights.get(key[0], None) is None:
-                    queries_weights[key[0]] += tf_idf[key]
-                elif queries_weights[key[0]] != -1:
-                    queries_weights[key[0]] += tf_idf[key]
-                    
-                # temp[key[0]] += 1
-            else:
-                if queries_weights.get(key[0]):
-                    queries_weights[key[0]] = -1
-        
-        # pprint(temp)
-        pprint(queries_weights)
-                
-        # for docID in temp.keys(): # all queries need to be in every doc
-        #     if len(queries) != temp[docID]:
-        #         queries_weights[docID] = 0
-        #     else:
-        #         print(queries_weights[docID])
-
+        for w in queries_weights.copy().keys():
+            if queries_weights[w] == -1:
+                del queries_weights[w]                  
         return queries_weights
 
     def rank(self, scores):

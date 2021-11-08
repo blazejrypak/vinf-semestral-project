@@ -18,8 +18,6 @@ stemmer_data/
 /**/*.txt
 /collection/**
 /indexes/**
-# /test_collection/**
+/test_collection/**
 .ipynb_checkpoints
 /**/*.gml
-
-/test_collection/**
