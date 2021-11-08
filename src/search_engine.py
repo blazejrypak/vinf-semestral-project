@@ -24,27 +24,14 @@ class SearchEngine:
         self.tf = None
         self.df = None
         self.count_tokens_per_doc = None
-        self.tf_idf = self.load_tf_idf_index()
-        self.docID2docFileName = self.readIO('docID2docFileName.txt')
-        # if self.tf_idf is None:
         self.load_indexes()
-        pprint(self.tf)
+        self.tf_idf = self.compute_tf_idf()
+        self.docID2docFileName = self.readIO('docID2docFileName.txt')
             
     def load_indexes(self):
         self.tf = self.readIO("tf.txt")
         self.df = self.readIO("df.txt")
         self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
-
-    def load_tf_idf_index(self):
-        try:
-            with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'rb') as f:
-                return pickle.loads(f.read())
-        except FileNotFoundError:
-            self.load_indexes()
-            index = self.compute_tf_idf()
-            with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'wb') as f:
-                pickle.dump(index, f)
-            return index
 
     def load_graph(self):
         try:
@@ -77,31 +64,6 @@ class SearchEngine:
         if query in self.tf:
             return self.tf[query][docID]/self.count_tokens_per_doc[docID]
         return 0
-
-    # def compute_tf_idf(self):
-    #     """
-    #     Compute TF-IDF table
-
-    #     Returns:
-    #         {
-    #             [docID][token] = weight
-    #         }
-            
-            
-    #         {
-    #             [token] = {
-    #                 [docID] = weight
-    #             }
-    #         }
-    #     """
-    #     tf_idf = defaultdict(float)
-    #     for docID in range(self.docs_reader.stats['readed_docs']):
-    #         for token in self.tf.keys():
-    #             token_tf_w = self.compute_tf(token, docID)
-    #             token_idf_w = self.compute_idf(token)
-    #             tf_idf[docID, token] = token_tf_w*token_idf_w
-
-    #     return tf_idf
     
     def compute_tf_idf(self): 
         tf_idf = defaultdict(dict)
@@ -195,11 +157,15 @@ class SearchEngine:
                     list(query_tf.keys()), self.tf_idf)
                 docIDs = self.rank(matching_score_scores)
                 docs = self.get_docs(docIDs)
-                for doc in docs:
-                    if doc.get('title', None):
-                        print(doc['title'])
-                    print(doc['url'])
-                    print()
+                if not any(docs):
+                    print('We did not found anything relevant')
+                else:
+                    print('\nFound results: \n')
+                    for doc in docs:
+                        if doc.get('title', None):
+                            print('\t', doc['title'])
+                        print('\t', doc['url'])
+                        print()
 
                 neighbors = set()
                 for entity in connections_entities:
