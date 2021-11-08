@@ -17,7 +17,7 @@ class NewsScraperExporterPipeline(object):
         pass
 
     def process_item(self, item, spider):
-        json_file = open('/Users/blazejrypak/Projects/vinf-project/collection/'+ str(uuid.uuid4()) + '.json', 'wb')
+        json_file = open('/Users/blazejrypak/Projects/vinf-project/html_collection/'+ str(uuid.uuid4()) + '.json', 'wb')
         exporter = JsonLinesItemExporter(file=json_file, encoding='utf-8', indent=0)
         exporter.start_exporting()
         exporter.export_item(item)

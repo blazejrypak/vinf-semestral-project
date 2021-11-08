@@ -5,7 +5,7 @@ from scrapy.spiders import CrawlSpider
 from scrapy.spiders.crawl import Rule
 from scrapy.linkextractors import LinkExtractor
 import re
-from news_scraper.items import ArticleItem
+from news_scraper.items import ArticleItem, ArticleHtmlItem
 from scrapy.http import Request
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -25,68 +25,9 @@ chromeOptions = {
     'Sec-Fetch-Site': 'none',
     'Sec-Fetch-Mode': 'navigate',
 }
-
-
-class ArticleSpider(scrapy.Spider):
-    name = 'article'
-    allowed_domains = ['aktuality.sk']
-    start_urls = [
-        'https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/']
-
-    def __init__(self, name=None, **kwargs):
-        super().__init__(name=name, **kwargs)
-        self.options = webdriver.ChromeOptions()
-        self.login_page = 'https://konto.aktuality.sk/prihlasenie'
-        self.cookies = None
-        for key in chromeOptions.keys():
-            self.options.add_argument(f'{key}={chromeOptions[key]}')
-        self.options.headless = True
-        self.driver = webdriver.Chrome(chrome_options=self.options)
-
-    def start_requests(self):
-        self.driver.get(self.login_page)
-        time.sleep(5)
-        self.driver.find_element(By.ID, ('account-email')).send_keys(EMAIL)
-        self.driver.find_element(By.ID, ('password')).send_keys(PASSWORD)
-        self.driver.find_element(By.CSS_SELECTOR, ('.submit-btn')).click()
-        time.sleep(5)
-        self.cookies = {cookie['name']: cookie['value']
-                        for cookie in self.driver.get_cookies()}
-        time.sleep(5)
-        yield Request(url='https://www.aktuality.sk/clanok/w38ccd1/narast-napatia-i-nestability-co-vsetko-sa-na-juhu-kaukazu-zmenilo-od-vojny-o-karabach/', cookies=self.cookies, headers=chromeOptions)
-        self.driver.quit()
-
-    def make_requests_from_url(self, url):
-        request = super(ArticleSpider, self).make_requests_from_url(url)
-        if self.cookies:
-            request.cookies = self.cookies
-        request.headers = chromeOptions
-        return request
-
-    def parse_article(self, response):
-        title = response.xpath('//*[@id="article"]/h1/span/text()').get()
-        # datetime_str = str(response.css('.date::text').get()).strip('\n ')
-        # date_str = re.search(r'\d{2}.\d{2}.\d{4}', datetime_str)
-        # time_str = re.search(r'\d{2}:\d{2}', datetime_str)
-        article_body = response.css('.fulltext')
-        content = ''
-        for p in article_body.css('p::text').getall():
-            content += re.sub('\s+', ' ', str(p))
-        # output_datetime = ''
-        # if date_str:
-        #     output_datetime += date_str.group()
-        #     if time_str:
-        #         output_datetime += ':'
-        #         output_datetime += time_str.group()
-        article = ArticleItem(url=response.url, title=title, body=content)
-        return article
-
-
 class AktualitySpider(CrawlSpider):
     name = 'aktuality'
     allowed_domains = ['aktuality.sk']
-    # start_urls = ['https://www.aktuality.sk', 'https://www.aktuality.sk/spravy/slovensko/', 'https://www.aktuality.sk/regiony/',
-    #               'https://www.aktuality.sk/spravy/zahranicne/', 'https://www.aktuality.sk/spravy/komentare/', 'https://www.aktuality.sk/cestovanie/', 'https://www.aktuality.sk/zdravie/', 'https://www.aktuality.sk/kultura/', 'https://www.aktuality.sk/premiove-citanie/']
 
     start_urls = ['https://www.aktuality.sk']
     def __init__(self, name=None, **kwargs):
@@ -166,11 +107,20 @@ class AktualitySpider(CrawlSpider):
             self.debug_site_graph_depth += 1
         return super()._parse(response, **kwargs)
 
+    # def parse_article(self, response):
+    #     title = response.xpath('//*[@id="article"]/h1/span/text()').get()
+    #     article_body = response.css('.fulltext')
+    #     content = ''
+    #     for p in article_body.css('p::text').getall():
+    #         content += re.sub('\s+', ' ', str(p)) + ' '
+    #     article = ArticleItem(url=response.url, title=title, body=content)
+    #     return article
+
     def parse_article(self, response):
-        title = response.xpath('//*[@id="article"]/h1/span/text()').get()
-        article_body = response.css('.fulltext')
-        content = ''
-        for p in article_body.css('p::text').getall():
-            content += re.sub('\s+', ' ', str(p)) + ' '
-        article = ArticleItem(url=response.url, title=title, body=content)
-        return article
+        cookies = response.headers.getlist('Set-Cookie')
+        for c in cookies:
+            if 'session=' in str(c):
+                self.login()
+                break
+            
+        return ArticleHtmlItem(url=response.url, article_html_body=response.css('body').get())

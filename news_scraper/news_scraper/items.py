@@ -17,3 +17,7 @@ class ArticleItem(scrapy.Item):
     title = scrapy.Field()
     body = scrapy.Field()
     datetime = scrapy.Field()
+    
+class ArticleHtmlItem(scrapy.Item):
+    url = scrapy.Field()
+    article_html_body = scrapy.Field()
