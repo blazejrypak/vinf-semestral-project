@@ -22,16 +22,13 @@ class SearchEngine:
         self.start = None
         self.end = None
         self.tf = None
-        self.df = None
-        self.count_tokens_per_doc = None
+        self.tf_idf = None
         self.load_indexes()
-        self.tf_idf = self.compute_tf_idf()
-        self.docID2docFileName = self.readIO('docID2docFileName.txt')
             
     def load_indexes(self):
         self.tf = self.readIO("tf.txt")
-        self.df = self.readIO("df.txt")
-        self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
+        self.tf_idf = self.readIO("tf_idf.txt")
+        self.docID2docFileName = self.readIO('docID2docFileName.txt')
 
     def load_graph(self):
         try:
@@ -52,57 +49,25 @@ class SearchEngine:
         with open(f'{settings.INDEX_BASE_PATH}{filename}.txt', 'wb') as file:
             pickle.dump(index, file)
 
-    def compute_idf(self, query):
-        if query in self.df:
-            return math.log10(self.docs_reader.stats['readed_docs']/self.df[query])
-        else:
-            return 0
-
-    def compute_tf(self, query, docID):
-        if not self.count_tokens_per_doc[docID]:
-            return 0
-        if query in self.tf:
-            return self.tf[query][docID]/self.count_tokens_per_doc[docID]
-        return 0
-    
-    def compute_tf_idf(self): 
-        tf_idf = defaultdict(dict)
-        for docID in range(self.docs_reader.stats['readed_docs']):
-            for token in self.tf.keys():
-                token_tf_w = self.compute_tf(token, docID)
-                token_idf_w = self.compute_idf(token)
-                if tf_idf.get(token, None):
-                    tf_idf[token][docID] = token_tf_w*token_idf_w
-                else:
-                    tf_idf[token] = {docID: token_tf_w*token_idf_w}
-        return tf_idf
-
     def matching_score(self, queries, tf_idf):
         queries_weights = defaultdict(float)
+        temp = defaultdict(int)
         for token in queries:
             if tf_idf.get(token, None):
                 docs_weights = tf_idf[token]
                 for docID in docs_weights.keys():
-                    if queries_weights.get(docID, None):
-                        if queries_weights[docID] == -1:
-                            continue
-                        else:
-                            queries_weights[docID] += docs_weights[docID]
-                    else:
-                        if self.tf[token][docID] != 0:
-                            queries_weights[docID] += docs_weights[docID]
-                        else:
-                            queries_weights[docID] = -1
-        
-        for w in queries_weights.copy().keys():
-            if queries_weights[w] == -1:
-                del queries_weights[w]                  
+                    if self.tf[token][docID] != 0:
+                        queries_weights[docID] += docs_weights[docID]
+                        temp[docID] += 1
+
+        for docID in queries_weights.copy().keys():
+            if temp[docID] != len(queries):
+                del queries_weights[docID]              
         return queries_weights
 
     def rank(self, scores):
         ranks = OrderedDict(
             sorted(scores.items(), key=lambda x: x[1], reverse=True))
-        # self.writeIO("ranks", ranks)
         docIDs = []
         for k, v in ranks.items():
             if v > 0 and len(docIDs) < 10:
@@ -183,3 +148,15 @@ class SearchEngine:
 
 searchEngine = SearchEngine()
 searchEngine.run()
+
+
+# TODO 
+# compute tf-idf in indexer after indexing
+# read tf-idf table in search engine 
+
+# fix re-auth in crawler
+# save files like html
+
+# create parser of html files
+
+# add to parser to save parsed files to dictionary

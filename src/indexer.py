@@ -25,6 +25,8 @@ class Indexer:
         self.tokenizer = Tokenizer()
         self.G = nx.Graph()
         self.docID2docFileName = defaultdict(str)
+        self.read_docs_count = 0
+        self.count_tokens_per_doc = None
     
     def print_top_keywords_per_article(self, tf):
         for w in sorted(tf, key=lambda ele: sum(1 for x in tf[ele] if x != 0), reverse=True)[:10]:
@@ -89,6 +91,7 @@ class Indexer:
             self.add2tf(tf, tf_doc, docsReader.get_docID())
             postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)
             count_tokens_per_doc[docsReader.get_docID()] = len(tokens)
+        self.read_docs_count = docsReader.stats['readed_docs']
         return postingslist, tf, count_tokens_per_doc
 
     def create_df(self, postingslist):
@@ -100,6 +103,31 @@ class Indexer:
     def writeIO(self, filename, index):
         with open(f'{settings.INDEX_BASE_PATH}{filename}.txt', 'wb') as file:
             pickle.dump(index, file)
+            
+    def compute_idf(self, query, df):
+        if query in df:
+            return math.log10(self.read_docs_count/df[query])
+        else:
+            return 0
+
+    def compute_tf(self, query, docID, tf, count_tokens_per_doc):
+        if not count_tokens_per_doc[docID]:
+            return 0
+        if query in tf:
+            return tf[query][docID]/count_tokens_per_doc[docID]
+        return 0
+            
+    def compute_tf_idf(self, tf, df, count_tokens_per_doc): 
+        tf_idf = defaultdict(dict)
+        for docID in range(self.read_docs_count):
+            for token in tf.keys():
+                token_tf_w = self.compute_tf(token, docID, tf, count_tokens_per_doc)
+                token_idf_w = self.compute_idf(token, df)
+                if tf_idf.get(token, None):
+                    tf_idf[token][docID] = token_tf_w*token_idf_w
+                else:
+                    tf_idf[token] = {docID: token_tf_w*token_idf_w}
+        return tf_idf
 
     def run(self):
         """tf:
@@ -125,6 +153,8 @@ class Indexer:
         self.writeIO('count_tokens_per_doc', count_tokens_per_doc)
         self.writeIO('docID2docFileName', self.docID2docFileName)
         self.save_graph()
+        self.writeIO('tf_idf', self.compute_tf_idf(tf, df, count_tokens_per_doc))
+        
 
 
 indexer = Indexer()
