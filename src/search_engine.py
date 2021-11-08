@@ -46,25 +46,6 @@ class SearchEngine:
         except nx.NetworkXError:
             return None
 
-    def query_search(self):
-        print("If you want find connections between entities write them in this format: connections: <Robert Fico>; <Peter Pellegrini>; ...")
-        queries = input("Enter query: ")
-
-        any_connections = re.search('connections:.*;', queries)
-        connections_entities_to_find = []
-        if any_connections:
-            self.G = self.load_graph()
-            any_connections = any_connections.group(
-                0).replace('connections:', '')
-            entities = regex.findall('([a-zA-Z ]*)', any_connections)
-            connections_entities_to_find = [
-                entity.strip() for entity in entities if entity != '']
-
-        queries = queries.lower()
-        queries = re.sub('[^a-z0-9 ]', ' ', queries)  # clean queries
-        queries, temp = self.tokenizer.tokenize(queries)
-        return temp, connections_entities_to_find
-
     def readIO(self, filename):
         try:
             with open(settings.INDEX_BASE_PATH + filename, 'rb') as f:
@@ -108,35 +89,6 @@ class SearchEngine:
                 queries_weights[key[0]] = tf_idf[key]
 
         return queries_weights
-
-    def get_total_number_of_tokens(self):
-        total = 0
-        for key in self.count_tokens_per_doc.keys():
-            total += self.count_tokens_per_doc[key]
-        return total
-
-    def vectorization(self, queries, tf_idf):
-        scores = {}
-        D = np.zeros(
-            (self.docs_reader.stats['readed_docs'], len(tf_idf.keys())))
-        for key in tf_idf.keys():
-            ind = list(self.tf.keys()).index(key[1])
-            D[key[0]][ind] = tf_idf[key]
-
-        Q = np.zeros((1, len(tf_idf.keys())))
-        for key in tf_idf.keys():
-            if key[1] in queries:
-                ind = list(self.tf.keys()).index(key[1])
-                Q[0][ind] = tf_idf[key]
-
-        for docID in range(D.shape[0]):
-            product = np.dot(Q, D[docID])
-            norms = np.linalg.norm(Q)*np.linalg.norm(D[docID])
-            if norms > 0:
-                scores[docID] = product/norms
-            else:
-                scores[docID] = 0
-        return scores
 
     def rank(self, scores):
         ranks = OrderedDict(
@@ -187,9 +139,11 @@ class SearchEngine:
                 matching_score_scores = self.matching_score(
                     list(query_tf.keys()), self.tf_idf)
                 docIDs = self.rank(matching_score_scores)
+                pprint(docIDs)
                 docs = self.docs_reader.get_docs(docIDs)
                 for doc in docs:
-                    print(doc['title'])
+                    if doc['title']:
+                        print(doc['title'])
                     print(doc['url'])
                     print()
 

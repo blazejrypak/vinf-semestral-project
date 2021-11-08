@@ -79,11 +79,11 @@ class Indexer:
                 for edge in combinations(set(entities), 2):
                     if len(edge) == 2:
                         if self.G.has_edge(*edge): # add weight
-                            print(edge)
-                            self.G[edge[0]][edge[1]] += 1
-                            self.G[edge[1]][edge[0]] += 1
+                            self.G[edge[0]][edge[1]]['weight'] += 1
+                            self.G[edge[1]][edge[0]]['weight'] += 1
                         else:
                             self.G.add_edge(edge[0], edge[1], weight = 1)
+                            self.G.add_edge(edge[1], edge[0], weight = 1)
 
             self.add2tf(tf, tf_doc, docsReader.get_docID())
             postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)

@@ -55,6 +55,8 @@ class DocsReader:
             return []
         docs = []
         curr_doc_id = 0
+        self.collection = iter(sorted(os.listdir(self.collection_path)))
+        self.docID = -1
         for doc in self:
             if curr_doc_id in docIDs:
                 docs.append(doc)
