@@ -148,15 +148,3 @@ class SearchEngine:
 
 searchEngine = SearchEngine()
 searchEngine.run()
-
-
-# TODO 
-# compute tf-idf in indexer after indexing
-# read tf-idf table in search engine 
-
-# fix re-auth in crawler
-# save files like html
-
-# create parser of html files
-
-# add to parser to save parsed files to dictionary

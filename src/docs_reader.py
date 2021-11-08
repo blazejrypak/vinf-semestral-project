@@ -7,7 +7,7 @@ import settings
 
 class DocsReader:
     def __init__(self):
-        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/small_test_collection/' if settings.DEGUG else '/Users/blazejrypak/Projects/vinf-project/collection/'
+        self.collection_path = '/Users/blazejrypak/Projects/vinf-project/test_collection/' if settings.DEGUG else '/Users/blazejrypak/Projects/vinf-project/collection/'
         self.collection = iter(sorted(os.listdir(self.collection_path)))
         self.current_file_path = ''
         self.docID = -1
