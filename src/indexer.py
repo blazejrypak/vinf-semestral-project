@@ -18,6 +18,8 @@ import settings
 import networkx as nx
 from itertools import combinations
 import math
+import threading
+import datetime
 
 class Indexer:
 
@@ -27,6 +29,7 @@ class Indexer:
         self.docID2docFileName = defaultdict(str)
         self.read_docs_count = 0
         self.count_tokens_per_doc = None
+        self.docsReader = DocsReader()
     
     def print_top_keywords_per_article(self, tf):
         for w in sorted(tf, key=lambda ele: sum(1 for x in tf[ele] if x != 0), reverse=True)[:10]:
@@ -71,8 +74,7 @@ class Indexer:
             return nx.Graph()
 
     def traverseDocs(self, tf, postingslist, count_tokens_per_doc):
-        docsReader = DocsReader()
-        for document in docsReader:
+        for document in self.docsReader:
             if not document:
                 continue
             tokens, tf_doc = self.tokenizer.tokenize_doc(document)
@@ -87,11 +89,11 @@ class Indexer:
                         else:
                             self.G.add_edge(edge[0], edge[1], weight = 1)
                             self.G.add_edge(edge[1], edge[0], weight = 1)
-            self.docID2docFileName[docsReader.get_docID()] = docsReader.get_current_filename()
-            self.add2tf(tf, tf_doc, docsReader.get_docID())
-            postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)
-            count_tokens_per_doc[docsReader.get_docID()] = len(tokens)
-        self.read_docs_count = docsReader.stats['readed_docs']
+            self.docID2docFileName[self.docsReader.get_docID()] = self.docsReader.get_current_filename()
+            self.add2tf(tf, tf_doc, self.docsReader.get_docID())
+            postingslist = self.add2postingslist(tokens, self.docsReader.get_current_filename(), postingslist)
+            count_tokens_per_doc[self.docsReader.get_docID()] = len(tokens)
+        self.read_docs_count = self.docsReader.stats['readed_docs']
         return postingslist, tf, count_tokens_per_doc
 
     def create_df(self, postingslist):
@@ -128,6 +130,10 @@ class Indexer:
                 else:
                     tf_idf[token] = {docID: token_tf_w*token_idf_w}
         return tf_idf
+    
+    def indexer_stats(self):
+        now = datetime.datetime.now()
+        print(f'[{now.strftime("%Y-%m-%d %H:%M:%S")}]','Indexed ', self.docsReader.get_docID(), ' files')
 
     def run(self):
         """tf:
