@@ -36,10 +36,10 @@ class DocsReader:
         return self
 
     def __next__(self):
-        self.docID += 1
         self.current_file_path = next(self.collection)
-        self.stats['readed_docs'] = self.docID + 1
         try:
+            self.docID += 1
+            self.stats['readed_docs'] = self.docID + 1
             return jsonlines.open(self.collection_path + self.current_file_path).read(type=dict)
         except Exception as e:
             self.__next__()
@@ -61,4 +61,16 @@ class DocsReader:
             if curr_doc_id in docIDs:
                 docs.append(doc)
             curr_doc_id += 1
+        return docs
+    
+    def get_docs_by_file_name(self, docs_filenames):
+        if not any(docs_filenames):
+            return []
+        docs = []
+        for doc_filename in docs_filenames:
+            try:
+                document = jsonlines.open(self.collection_path + doc_filename).read(type=dict)
+                docs.append(document)
+            except Exception as e:
+                pass
         return docs

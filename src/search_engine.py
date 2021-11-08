@@ -8,7 +8,7 @@ import re
 import math
 from docs_reader import DocsReader
 import numpy as np
-from pprint import pprint
+from pprint import pp, pprint
 import settings
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -25,16 +25,21 @@ class SearchEngine:
         self.df = None
         self.count_tokens_per_doc = None
         self.tf_idf = self.load_tf_idf_index()
+        self.docID2docFileName = self.readIO('docID2docFileName.txt')
         if self.tf_idf is None:
-            self.tf = self.readIO("tf.txt")
-            self.df = self.readIO("df.txt")
-            self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
+            self.load_indexes()
+            
+    def load_indexes(self):
+        self.tf = self.readIO("tf.txt")
+        self.df = self.readIO("df.txt")
+        self.count_tokens_per_doc = self.readIO("count_tokens_per_doc.txt")
 
     def load_tf_idf_index(self):
         try:
             with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'rb') as f:
                 return pickle.loads(f.read())
         except FileNotFoundError:
+            self.load_indexes()
             index = self.compute_tf_idf()
             with open(f'{settings.INDEX_BASE_PATH}tf_idf.txt', 'wb') as f:
                 pickle.dump(index, f)
@@ -73,6 +78,14 @@ class SearchEngine:
         return 0
 
     def compute_tf_idf(self):
+        """
+        Compute TF-IDF table
+
+        Returns:
+            {
+                [docID][token] = weight
+            }
+        """
         tf_idf = defaultdict(float)
         for docID in range(self.docs_reader.stats['readed_docs']):
             for token in self.tf.keys():
@@ -84,9 +97,28 @@ class SearchEngine:
 
     def matching_score(self, queries, tf_idf):
         queries_weights = defaultdict(float)
+        temp = defaultdict(int)
+        
         for key in tf_idf.keys():
             if key[1] in queries:
-                queries_weights[key[0]] = tf_idf[key]
+                if queries_weights.get(key[0], None) is None:
+                    queries_weights[key[0]] += tf_idf[key]
+                elif queries_weights[key[0]] != -1:
+                    queries_weights[key[0]] += tf_idf[key]
+                    
+                # temp[key[0]] += 1
+            else:
+                if queries_weights.get(key[0]):
+                    queries_weights[key[0]] = -1
+        
+        # pprint(temp)
+        pprint(queries_weights)
+                
+        # for docID in temp.keys(): # all queries need to be in every doc
+        #     if len(queries) != temp[docID]:
+        #         queries_weights[docID] = 0
+        #     else:
+        #         print(queries_weights[docID])
 
         return queries_weights
 
@@ -126,6 +158,14 @@ class SearchEngine:
         query, queries_tf = self.tokenizer.tokenize(query)
         return queries_tf
 
+    def get_docs(self, docsIDs):
+        docs_filenames = []
+        for docID in docsIDs:
+            doc_filename = self.docID2docFileName.get(docID, None)
+            if doc_filename:
+                docs_filenames.append(doc_filename)
+        return self.docs_reader.get_docs_by_file_name(docs_filenames)
+
     def run(self):
         while True:
             self.terminal_show_commands()
@@ -139,10 +179,9 @@ class SearchEngine:
                 matching_score_scores = self.matching_score(
                     list(query_tf.keys()), self.tf_idf)
                 docIDs = self.rank(matching_score_scores)
-                pprint(docIDs)
-                docs = self.docs_reader.get_docs(docIDs)
+                docs = self.get_docs(docIDs)
                 for doc in docs:
-                    if doc['title']:
+                    if doc.get('title', None):
                         print(doc['title'])
                     print(doc['url'])
                     print()

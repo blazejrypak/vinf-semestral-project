@@ -24,6 +24,7 @@ class Indexer:
     def __init__(self):
         self.tokenizer = Tokenizer()
         self.G = nx.Graph()
+        self.docID2docFileName = defaultdict(str)
     
     def print_top_keywords_per_article(self, tf):
         for w in sorted(tf, key=lambda ele: sum(1 for x in tf[ele] if x != 0), reverse=True)[:10]:
@@ -84,7 +85,7 @@ class Indexer:
                         else:
                             self.G.add_edge(edge[0], edge[1], weight = 1)
                             self.G.add_edge(edge[1], edge[0], weight = 1)
-
+            self.docID2docFileName[docsReader.get_docID()] = docsReader.get_current_filename()
             self.add2tf(tf, tf_doc, docsReader.get_docID())
             postingslist = self.add2postingslist(tokens, docsReader.get_current_filename(), postingslist)
             count_tokens_per_doc[docsReader.get_docID()] = len(tokens)
@@ -122,6 +123,7 @@ class Indexer:
         self.writeIO('postingslist', postingslist)
         self.writeIO('df', df)
         self.writeIO('count_tokens_per_doc', count_tokens_per_doc)
+        self.writeIO('docID2docFileName', self.docID2docFileName)
         self.save_graph()
 
 
