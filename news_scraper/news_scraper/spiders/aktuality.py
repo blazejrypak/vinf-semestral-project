@@ -94,9 +94,9 @@ class AktualitySpider(CrawlSpider):
 
     def parse_article(self, response):
         title = str(response.css('#account-button-title::text').get()).strip()
-        self.logger.info(title)
         if 'rypak.b@...' in title:
             yield ArticleHtmlItem(url=response.url, article_html_body=response.css('body').get())
         else:
+            self.logger.info(title)
             self.login()
             yield scrapy.Request(url=response.url, cookies=self.cookies, callback=self.parse_article)
