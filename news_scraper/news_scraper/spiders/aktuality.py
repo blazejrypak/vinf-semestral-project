@@ -11,6 +11,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 from news_scraper.conf import EMAIL, PASSWORD
+from pprint import pprint
 
 chromeOptions = {
     'Connection': 'keep-alive',
@@ -38,9 +39,10 @@ class AktualitySpider(CrawlSpider):
         for key in chromeOptions.keys():
             self.options.add_argument(f'{key}={chromeOptions[key]}')
         self.options.headless = True
-        self.driver = webdriver.Chrome(chrome_options=self.options)
+        self.driver = None
         self.debug_site_graph_depth = 0
         self.debug = False
+        self.headers = {}
 
     article_link_extractor = LinkExtractor(
         allow=r"www.aktuality.sk/clanok/[a-zA-Z0-9]*/", allow_domains='aktuality.sk', unique=True)
@@ -61,10 +63,10 @@ class AktualitySpider(CrawlSpider):
     def process_request_cookies(self, request, spider):
         if self.cookies:
             request.cookies = self.cookies
-        # request.headers = headers # not working why?
         return request
 
     def login(self):
+        self.driver = webdriver.Chrome(chrome_options=self.options)
         self.logger.info('Openning login page')
         self.driver.get(self.login_page)
         time.sleep(5)
@@ -78,6 +80,7 @@ class AktualitySpider(CrawlSpider):
         self.driver.quit()
         time.sleep(5)
         self.logger.info('Successfully logged in')
+        return self.cookies
 
     def open_spider(self, spider):
         self.login()
@@ -87,40 +90,13 @@ class AktualitySpider(CrawlSpider):
             self.login()
         self.logger.info('Starting scraping...')
         for url in self.start_urls:
-            yield Request(url=url, cookies=self.cookies, dont_filter=True)
-
-    def _parse(self, response, **kwargs):
-        if self.debug and self.debug_site_graph_depth < 5:
-            links = []
-            for rule_index, rule in enumerate(self._rules):
-                links.extend(rule.link_extractor.extract_links(response))
-
-            linkedUrls = []
-            for l in links:
-                linkedUrls.append(l.url)
-            with open('./site.json', 'a') as file:
-                root_node = {
-                    'url': response.url,
-                    'urlLinks': linkedUrls
-                }
-                file.write(json.dumps(root_node) + '\n')
-            self.debug_site_graph_depth += 1
-        return super()._parse(response, **kwargs)
-
-    # def parse_article(self, response):
-    #     title = response.xpath('//*[@id="article"]/h1/span/text()').get()
-    #     article_body = response.css('.fulltext')
-    #     content = ''
-    #     for p in article_body.css('p::text').getall():
-    #         content += re.sub('\s+', ' ', str(p)) + ' '
-    #     article = ArticleItem(url=response.url, title=title, body=content)
-    #     return article
+            yield Request(url=url, cookies=self.cookies, dont_filter=False)
 
     def parse_article(self, response):
-        cookies = response.headers.getlist('Set-Cookie')
-        for c in cookies:
-            if 'session=' in str(c):
-                self.login()
-                break
-            
-        return ArticleHtmlItem(url=response.url, article_html_body=response.css('body').get())
+        title = str(response.css('#account-button-title::text').get()).strip()
+        self.logger.info(title)
+        if 'rypak.b@...' in title:
+            yield ArticleHtmlItem(url=response.url, article_html_body=response.css('body').get())
+        else:
+            self.login()
+            yield scrapy.Request(url=response.url, cookies=self.cookies, callback=self.parse_article)

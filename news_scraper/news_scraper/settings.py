@@ -16,7 +16,8 @@ DEFAULT_REQUEST_HEADERS = {
     'Referer': 'https://www.google.com' 
 }
 
-JOBDIR = 'AKTUALITY_SPIDER_JOB/job-1'
+# JOBDIR = 'AKTUALITY_SPIDER_JOB/job-1'
+JOBDIR = 'HTML_AKTUALITY_SPIDER_JOB/job-1'
 
 # ROTATING_PROXY_LIST = [
 #     '212.5.206.97:8080',
